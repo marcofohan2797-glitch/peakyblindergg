@@ -43,6 +43,105 @@ const presetDescriptions = [
 const IMAGE_BUCKET = 'auction-images'
 const ENDED_PAGE_SIZE = 50
 
+// Compress newly selected PNG/JPG/WebP images in the browser before upload.
+// Keep the output below Supabase Storage's existing 2 MB object limit.
+const MAX_STORAGE_IMAGE_BYTES = 2 * 1024 * 1024
+const MAX_SOURCE_IMAGE_BYTES = 20 * 1024 * 1024
+const TARGET_WEBP_BYTES = Math.floor(1.8 * 1024 * 1024)
+const MAX_WEBP_DIMENSION = 1600
+
+function decodeImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file)
+    const image = new Image()
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve(image)
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error('Could not read this image. Please choose another PNG or JPG.'))
+    }
+    image.src = objectUrl
+  })
+}
+
+function canvasToWebPBlob(canvas, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (!blob) {
+        reject(new Error('Image compression failed. Please choose another image.'))
+        return
+      }
+      if (blob.type !== 'image/webp') {
+        reject(new Error('Your browser could not convert this image to WebP. Please use a recent version of Chrome, Edge, or Firefox.'))
+        return
+      }
+      resolve(blob)
+    }, 'image/webp', quality)
+  })
+}
+
+async function compressAuctionImageToWebP(file) {
+  // Preserve GIF animation. GIFs continue using the existing 2 MB limit.
+  if (file.type === 'image/gif') {
+    if (file.size > MAX_STORAGE_IMAGE_BYTES) {
+      throw new Error('GIF images must be under 2 MB so their animation is preserved.')
+    }
+    return file
+  }
+
+  const convertibleTypes = new Set(['image/png', 'image/jpeg', 'image/webp'])
+  if (!convertibleTypes.has(file.type)) {
+    if (file.size > MAX_STORAGE_IMAGE_BYTES) {
+      throw new Error('Only PNG, JPG, and WebP images can be automatically compressed. Other image formats must be under 2 MB.')
+    }
+    return file
+  }
+
+  // A small WebP is already optimized enough; no need to recompress it.
+  if (file.type === 'image/webp' && file.size <= TARGET_WEBP_BYTES) return file
+
+  const image = await decodeImageFile(file)
+  const originalWidth = image.naturalWidth || image.width
+  const originalHeight = image.naturalHeight || image.height
+  if (!originalWidth || !originalHeight) {
+    throw new Error('This image has invalid dimensions. Please choose another image.')
+  }
+
+  const initialScale = Math.min(1, MAX_WEBP_DIMENSION / Math.max(originalWidth, originalHeight))
+  const baseWidth = Math.max(1, Math.round(originalWidth * initialScale))
+  const baseHeight = Math.max(1, Math.round(originalHeight * initialScale))
+  const dimensionScales = [1, 0.85, 0.7, 0.55, 0.4]
+  const qualityLevels = [0.86, 0.78, 0.70, 0.62]
+
+  for (const dimensionScale of dimensionScales) {
+    const width = Math.max(1, Math.round(baseWidth * dimensionScale))
+    const height = Math.max(1, Math.round(baseHeight * dimensionScale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('Your browser could not prepare this image for compression.')
+
+    // WebP supports transparency, so transparent PNG auction art remains transparent.
+    context.drawImage(image, 0, 0, width, height)
+
+    for (const quality of qualityLevels) {
+      const blob = await canvasToWebPBlob(canvas, quality)
+      if (blob.size <= TARGET_WEBP_BYTES && blob.size <= MAX_STORAGE_IMAGE_BYTES) {
+        const baseName = file.name.replace(/\.[^.]+$/, '') || 'auction-image'
+        return new File([blob], `${baseName}.webp`, {
+          type: 'image/webp',
+          lastModified: Date.now(),
+        })
+      }
+    }
+  }
+
+  throw new Error('This image is still too large after compression. Please choose a smaller image.')
+}
+
 // Glassmorphism / liquid-glass styling for this page. Only top-level surfaces
 // use backdrop-filter; panels nested inside them use translucent fills, because
 // a blurred element inside another blurred element loses its own blur.
@@ -887,8 +986,16 @@ export default function Auctions({ ctx }) {
       addToast('Please choose an image file.', 'red', 'Invalid File')
       return
     }
-    if (file.size > 2 * 1024 * 1024) {
-      addToast('Image must be under 2 MB.', 'red', 'Too Large')
+    if (file.size > MAX_SOURCE_IMAGE_BYTES) {
+      addToast('Image must be under 20 MB before compression.', 'red', 'Too Large')
+      return
+    }
+    if (file.type === 'image/gif' && file.size > MAX_STORAGE_IMAGE_BYTES) {
+      addToast('GIF images must be under 2 MB so their animation is preserved.', 'red', 'Too Large')
+      return
+    }
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type) && file.size > MAX_STORAGE_IMAGE_BYTES) {
+      addToast('Only PNG, JPG, and WebP images can be automatically compressed. Other image formats must be under 2 MB.', 'red', 'Unsupported Format')
       return
     }
     if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
@@ -914,15 +1021,19 @@ export default function Auctions({ ctx }) {
   const uploadImage = async () => {
     if (pickedLibraryImg) return pickedLibraryImg.url
     if (!imageFile) return null
-    const ext = imageFile.name.split('.').pop()?.toLowerCase() || 'png'
+
+    const uploadFile = await compressAuctionImageToWebP(imageFile)
+    const ext = uploadFile.type === 'image/webp'
+      ? 'webp'
+      : (uploadFile.name.split('.').pop()?.toLowerCase() || 'gif')
     const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
 
     const { error } = await supabase.storage
       .from(IMAGE_BUCKET)
-      .upload(path, imageFile, {
+      .upload(path, uploadFile, {
         cacheControl: '3600',
         upsert: false,
-        contentType: imageFile.type,
+        contentType: uploadFile.type,
       })
 
     if (error) throw error
