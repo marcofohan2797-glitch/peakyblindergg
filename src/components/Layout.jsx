@@ -929,6 +929,14 @@ function NotificationBell({ ctx, onNavigate }) {
 export default function Layout({ ctx, page, setPage, children, toasts }) {
   const { currentUser, setCurrentUser, addToast, allMembers, supabase } = ctx
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  // While the phone menu is open, pause the page's animations underneath it.
+  // (Animated content under a blurred overlay is very expensive on phones.)
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.toggle('lg-menu-open', mobileOpen)
+    return () => root.classList.remove('lg-menu-open')
+  }, [mobileOpen])
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
@@ -1306,7 +1314,7 @@ export default function Layout({ ctx, page, setPage, children, toasts }) {
         <div className="fixed inset-0 z-[70] md:hidden">
           {/* Scrim is a sibling (not a parent) so the drawer's own blur still works */}
           <div
-            className="absolute inset-0 bg-black/55 backdrop-blur-sm"
+            className="lg-scrim absolute inset-0 bg-black/55 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
             aria-hidden="true"
           />
@@ -1590,6 +1598,36 @@ export default function Layout({ ctx, page, setPage, children, toasts }) {
           .lg-bar::before { background: rgba(10,8,7,.97); }
           .lg-panel { background: rgba(14,11,9,.98); }
           .lg-strip { background: rgba(20,16,13,.95); }
+        }
+
+        /* ---------- Phones: cheaper glass (measured: menu went from ~25 to ~44 fps) ---------- */
+        @media (max-width: 767px) {
+          .lg-bar::before {
+            backdrop-filter: blur(12px) saturate(150%);
+            -webkit-backdrop-filter: blur(12px) saturate(150%);
+          }
+          .lg-panel {
+            backdrop-filter: blur(14px) saturate(150%);
+            -webkit-backdrop-filter: blur(14px) saturate(150%);
+          }
+          /* The full-screen drawer and its dark overlay don't need live blur */
+          .lg-drawer.lg-panel {
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            background:
+              radial-gradient(120% 60% at 0% 0%, rgba(255,255,255,.07) 0%, transparent 50%),
+              linear-gradient(160deg, #211b15 0%, #110e0b 100%);
+          }
+          .lg-scrim {
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            background: rgba(0,0,0,.72);
+          }
+        }
+        html.lg-menu-open main *,
+        html.lg-menu-open main *::before,
+        html.lg-menu-open main *::after {
+          animation-play-state: paused !important;
         }
 
         @media (prefers-reduced-motion: reduce) {
