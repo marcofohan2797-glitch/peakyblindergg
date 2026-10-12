@@ -5,15 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PeakyBlinder</title>
     <link rel="icon" type="image/webp" href="/favicon.webp" />
+
+    <!-- Fonts (preconnect makes them load faster) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <script type="importmap">
-      {
-        "imports": {
-          "react": "https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js",
-          "react-dom": "https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"
-        }
-      }
-    </script>
+
+    <!-- Page animations + interactive effects (files live in /public) -->
+    <link rel="stylesheet" href="/motion.css" />
+    <script src="/motion.js" defer></script>
   </head>
   <body>
     <div id="root"></div>
