@@ -2,7 +2,6 @@
    PeakyBlinder · motion.js
    Interactive effects for the clan portal (pairs with motion.css).
 
-   - Cursor glow: a soft light follows your mouse across cards and panels.
    - Card tilt: cards lean toward the mouse (full-motion devices only).
    - Click ripple: buttons and cards answer a click with a light ripple.
    - Scroll reveal: cards and rows further down fade/rise in as you reach them.
@@ -25,11 +24,7 @@
 
   /* ── What reacts ─────────────────────────────────────────────────────── */
 
-  // Get the cursor glow (and tilt, for the cards)
-  const GLOW_SEL = [
-    '.mb-card', '.ag-lift', '.db-lift', '.ec-row',
-    '.db-glass', '.ag-glass', '.at-glass', '.mb-glass', '.ec-glass', '.pb-card',
-  ].join(',')
+  // Cards that lean toward the mouse (no cursor glow)
   const TILT_SEL = '.mb-card, .ag-lift, .db-lift'
 
   // Get a click ripple
@@ -43,7 +38,7 @@
     '.ag-root li', '.at-root li', '.ec-root aside li',
   ].join(',')
 
-  /* ── Cursor glow + tilt ──────────────────────────────────────────────── */
+  /* ── Card tilt ───────────────────────────────────────────────────────── */
 
   let hot = null          // element under the cursor
   let pending = null      // latest pointer event, handled once per frame
@@ -68,9 +63,7 @@
     if (!r.width || !r.height) return
     const x = e.clientX - r.left
     const y = e.clientY - r.top
-    hot.style.setProperty('--pbm-x', `${x}px`)
-    hot.style.setProperty('--pbm-y', `${y}px`)
-    if (!reduced() && hot.matches(TILT_SEL)) {
+    if (!reduced()) {
       // Max ~5° each way; keeps cards readable
       const rx = ((y / r.height) - 0.5) * -10
       const ry = ((x / r.width) - 0.5) * 10
@@ -82,7 +75,7 @@
   document.addEventListener('pointermove', e => {
     if (e.pointerType !== 'mouse' || !canHover()) return
     // The innermost card wins over the panel around it
-    const target = e.target instanceof Element ? e.target.closest(GLOW_SEL) : null
+    const target = e.target instanceof Element ? e.target.closest(TILT_SEL) : null
     setHot(target)
     pending = e
     if (target && !frame) frame = requestAnimationFrame(paint)
