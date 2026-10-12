@@ -377,6 +377,33 @@ const AG_STYLES = `
     .ag-root .ag-ft-count { font-size: 28px; }
   }
 
+  /* Phones & tablets: the same light, but as a rotating gradient the GPU can
+     move for free (the SVG outline above is redrawn every frame, which made
+     scrolling drop to ~12 fps on phones). */
+  .ag-root .ag-ft-ring2 {
+    display: none; position: absolute; inset: 0; z-index: 1; padding: 1.5px;
+    border-radius: inherit; overflow: hidden; pointer-events: none;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+  }
+  .ag-root .ag-ft-ring2 > span {
+    position: absolute; left: 50%; top: 50%; width: 160%; aspect-ratio: 1; translate: -50% -50%;
+    background: conic-gradient(from 0deg, transparent 0 36%, var(--ag-c) 46%, transparent 56% 86%, var(--ag-c) 96%, transparent 100%);
+    animation: ag-spin 12s linear infinite; animation-delay: calc(var(--ag-d, 0ms) * -12); will-change: transform;
+  }
+  @media (hover: none), (max-width: 1023px) {
+    .ag-root .ag-ft-ring { display: none; }
+    .ag-root .ag-ft-ring2 { display: block; }
+  }
+  /* Phones: lighter glass blur (cheaper to redraw while scrolling) */
+  @media (max-width: 767px) {
+    .ag-root .ag-glass:not(.ag-solid), .ag-root .ag-glass--thin {
+      backdrop-filter: blur(10px) saturate(140%);
+      -webkit-backdrop-filter: blur(10px) saturate(140%);
+    }
+    .ag-root .ag-ft-amb { filter: blur(14px) saturate(1.4); }
+  }
+
   /* Square image stage */
   .ag-root .ag-ft-stage {
     position: relative; overflow: hidden; border-radius: 18px; isolation: isolate;
@@ -2983,6 +3010,7 @@ const FeaturedAuctionCard = React.memo(function FeaturedAuctionCard({
       <svg className="ag-ft-ring" aria-hidden="true">
         <rect x="0" y="0" width="100%" height="100%" rx="22" ry="22" pathLength="100" />
       </svg>
+      <div className="ag-ft-ring2" aria-hidden="true"><span /></div>
       <div
         className="pointer-events-none absolute inset-0 rounded-[22px]"
         aria-hidden="true"
@@ -3094,6 +3122,7 @@ const FeaturedAuctionTile = React.memo(function FeaturedAuctionTile({
       <svg className="ag-ft-ring" aria-hidden="true">
         <rect x="0" y="0" width="100%" height="100%" rx="22" ry="22" pathLength="100" />
       </svg>
+      <div className="ag-ft-ring2" aria-hidden="true"><span /></div>
 
       <div className="ag-ft-body relative z-[2] flex flex-1 flex-col gap-3 p-3.5 sm:p-4">
         {isElder && (
