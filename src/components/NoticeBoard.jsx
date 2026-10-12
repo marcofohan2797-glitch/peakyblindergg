@@ -11,6 +11,17 @@ const NOTICE_TYPES = {
 
 const STAFF_ROLES = new Set(['Admin', 'Master', 'Elder'])
 
+// Only the columns the page uses (instead of select('*'))
+const NOTICE_COLUMNS = 'id,title,content,type,pinned,created_by,created_by_name,created_at,updated_at'
+
+// Dashboard preview refresh: notices change rarely, so check every 5 minutes,
+// only while the tab is visible, plus once when you come back to the tab.
+// (It used to ask Supabase every 30 seconds, even in background tabs.)
+const PREVIEW_REFRESH_MS = 5 * 60 * 1000
+// Re-opening the Dashboard within this time reuses the last result
+const PREVIEW_CACHE_MS = 60 * 1000
+let previewCache = { at: 0, rows: null }
+
 const EMOJIS = [
   '😀', '😎', '😂', '🤣', '😈', '🤝', '👍', '👎',
   '🔥', '⚔️', '🛡️', '👑', '💀', '☠️', '🎯', '🏆',
@@ -398,11 +409,17 @@ const noticeStyle = `
 export function ClanNoticePreview({ ctx, onOpenAll }) {
   const { supabase, currentUser } = ctx
   const canManage = canManageNotices(currentUser)
-  const [notices, setNotices] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [notices, setNotices] = useState(() => previewCache.rows || [])
+  const [loading, setLoading] = useState(() => !previewCache.rows)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ force = false } = {}) => {
     if (!supabase) {
+      setLoading(false)
+      return
+    }
+    // Fresh enough? Reuse it instead of asking Supabase again.
+    if (!force && previewCache.rows && Date.now() - previewCache.at < PREVIEW_CACHE_MS) {
+      setNotices(previewCache.rows)
       setLoading(false)
       return
     }
@@ -410,13 +427,15 @@ export function ClanNoticePreview({ ctx, onOpenAll }) {
     try {
       const { data, error } = await supabase
         .from('clan_notices')
-        .select('*')
+        .select(NOTICE_COLUMNS)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(2)
 
       if (error) throw error
-      setNotices((data || []).map(normalizeNotice))
+      const rows = (data || []).map(normalizeNotice)
+      previewCache = { at: Date.now(), rows }
+      setNotices(rows)
     } catch (error) {
       console.warn('Clan notices unavailable:', error?.message || error)
       setNotices([])
@@ -427,8 +446,19 @@ export function ClanNoticePreview({ ctx, onOpenAll }) {
 
   useEffect(() => {
     load()
-    const id = setInterval(load, 30000)
-    return () => clearInterval(id)
+    const id = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      load({ force: true })
+    }, PREVIEW_REFRESH_MS)
+    const onVisible = () => {
+      if (document.hidden) return
+      if (Date.now() - previewCache.at > PREVIEW_REFRESH_MS) load({ force: true })
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [load])
 
   if (!loading && notices.length === 0) return null
@@ -562,13 +592,14 @@ export default function NoticeBoard({ ctx }) {
     try {
       const { data, error } = await supabase
         .from('clan_notices')
-        .select('*')
+        .select(NOTICE_COLUMNS)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
       setNotices((data || []).map(normalizeNotice))
+      previewCache = { at: 0, rows: null } // the Dashboard preview reloads next time
       setSelectedIds([])
       setDbError('')
     } catch (error) {
@@ -719,6 +750,7 @@ export default function NoticeBoard({ ctx }) {
         },
       })
 
+      previewCache = { at: 0, rows: null }
       addToast?.(
         editing ? 'Notice updated successfully.' : 'Notice published successfully.',
         'gold',
@@ -758,6 +790,7 @@ export default function NoticeBoard({ ctx }) {
         details: { title: notice.title, type: notice.type },
       })
 
+      previewCache = { at: 0, rows: null }
       addToast?.('Notice deleted.', 'blue', 'Notice Board')
     } catch (error) {
       console.error('Failed to delete notice:', error)
@@ -804,6 +837,7 @@ export default function NoticeBoard({ ctx }) {
         },
       })
 
+      previewCache = { at: 0, rows: null }
       addToast?.(
         `${selectedIds.length} notice${selectedIds.length === 1 ? '' : 's'} deleted.`,
         'blue',
