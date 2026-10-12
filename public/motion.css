@@ -12,7 +12,7 @@
      motion.js adds that class ~1.5s after a page opens, so if the app
      re-creates the page later (e.g. while reloading data) it simply appears
      instead of fading in again (that caused a full-page blink).
-   - Cursor glow, card tilt, click ripple and scroll reveal need motion.js
+   - Card tilt, click ripple and scroll reveal need motion.js
      (loaded from index.html).
    - Players who turn on "reduce motion" on their device (on Windows:
      Animation effects off) get a calm version: soft fades only.
@@ -253,36 +253,7 @@
    device asks for reduced motion.
    ========================================================================== */
 
-/* Cursor glow on cards and glass panels */
-:is(.mb-card, .ag-lift, .db-lift, .ec-row,
-    .db-glass, .ag-glass, .at-glass, .mb-glass, .ec-glass, .pb-card)::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  border-radius: inherit;
-  pointer-events: none;
-  background: radial-gradient(
-    var(--pbm-glow-size, 340px) circle at var(--pbm-x, 50%) var(--pbm-y, 50%),
-    rgba(255, 222, 150, var(--pbm-glow, .15)),
-    rgba(255, 222, 150, 0) 62%
-  );
-  opacity: 0;
-  transition: opacity .3s ease;
-}
-:is(.mb-card, .ag-lift, .db-lift, .ec-row,
-    .db-glass, .ag-glass, .at-glass, .mb-glass, .ec-glass, .pb-card)[data-pbm-hot]::after {
-  opacity: 1;
-}
-/* Big panels get a wider, fainter glow */
-:is(.db-glass, .ag-glass, .at-glass, .mb-glass, .ec-glass, .pb-card):not(.mb-card, .ag-lift, .db-lift) {
-  --pbm-glow-size: 560px;
-  --pbm-glow: .10;
-}
-/* The glass edge brightens near the cursor */
-:is(.mb-card, .ag-lift, .db-lift, .db-glass, .ag-glass, .mb-glass, .ec-glass)[data-pbm-hot] {
-  border-color: rgba(255, 236, 190, .18);
-}
+/* (Cursor glow removed on request: no light follows the mouse.) */
 
 /* Click ripple */
 .pbm-ripple-layer {
