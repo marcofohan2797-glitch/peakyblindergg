@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import ChangePasswordModal from './ChangePasswordModal'
 import MyActivity from './MyActivity'
+import SupportModal from './SupportModal'
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -940,6 +941,7 @@ export default function Layout({ ctx, page, setPage, children, toasts }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
+  const [showSupport, setShowSupport] = useState(false)
 
   const isDesktop = useMediaQuery('(min-width: 768px)')
   const userMenuRef = useRef(null)
@@ -1283,15 +1285,13 @@ export default function Layout({ ctx, page, setPage, children, toasts }) {
                         >
                           🔑 <span className="ml-2">Change Password</span>
                         </button>
-                        <a
-                          href={SUPPORT_URL}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => setUserMenuOpen(false)}
+                        <button
+                          type="button"
+                          onClick={() => { setShowSupport(true); setUserMenuOpen(false) }}
                           className="block w-full rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-text transition hover:bg-white/[0.06] hover:text-gold-light"
                         >
                           💛 <span className="ml-2">Support the developer</span>
-                        </a>
+                        </button>
                         <div className="my-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                         <button
                           type="button"
@@ -1390,14 +1390,13 @@ export default function Layout({ ctx, page, setPage, children, toasts }) {
 
             <div className="border-t border-white/[0.07] px-4 py-3 text-center">
               <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-dim/55">PeakyBlinder • Ymir Clan</div>
-              <a
-                href={SUPPORT_URL}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => { setShowSupport(true); setMobileOpen(false) }}
                 className="mt-2 inline-block text-xs font-semibold text-gold-light underline decoration-gold/30 underline-offset-2 hover:text-gold-bright"
               >
                 💛 Built by {CREATOR_NAME} · Support the developer
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -1421,6 +1420,14 @@ export default function Layout({ ctx, page, setPage, children, toasts }) {
             >
               {SUPPORT_LINK_LABEL}
             </a>
+            {' '}or{' '}
+            <button
+              type="button"
+              onClick={() => setShowSupport(true)}
+              className="font-semibold text-gold-light underline decoration-gold/30 underline-offset-2 transition-colors hover:text-gold-bright"
+            >
+              donate WEMIX
+            </button>
             .
           </span>
         </div>
@@ -1438,6 +1445,10 @@ export default function Layout({ ctx, page, setPage, children, toasts }) {
           </div>
         ))}
       </div>
+
+      {showSupport && (
+        <SupportModal onClose={() => setShowSupport(false)} discordUrl={SUPPORT_URL} />
+      )}
 
       {showChangePassword && currentUser && (
         <ChangePasswordModal ctx={ctx} onClose={() => setShowChangePassword(false)} />
