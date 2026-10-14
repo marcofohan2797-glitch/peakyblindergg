@@ -980,21 +980,32 @@ export default function MyActivity({ ctx }) {
       {/* Auction wins */}
       {activeTab === 'auctions' && (
         <section className="mt-4">
-          <div className="mb-3 flex items-end justify-between gap-3">
-            <div>
-              <div className="text-[12px] font-bold uppercase tracking-[.16em] text-gold-dim">
-                Auction Archive
+          {/* Header card: what this is + the two numbers that matter */}
+          <div className="ma-card mb-3 flex flex-col gap-3 rounded-2xl p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-400/25 bg-amber-400/[.08] text-xl" aria-hidden="true">
+                🔨
               </div>
-              <h2 className="mt-1 font-spectral text-2xl font-bold text-text-bright">
-                Items You Won
-              </h2>
+              <div className="min-w-0">
+                <div className="text-[11px] font-bold uppercase tracking-[.16em] text-gold-dim">
+                  Auction Archive
+                </div>
+                <h2 className="font-spectral text-[1.5rem] font-bold leading-tight text-text-bright">
+                  Items You Won
+                </h2>
+                <p className="text-[12.5px] text-text-dim">Completed auctions you won, newest first.</p>
+              </div>
             </div>
 
-            <div className="text-right">
-              <div className="font-mono text-lg font-bold tabular-nums text-red-300">
-                -{money(auctionSpent)}
+            <div className="grid shrink-0 grid-cols-2 gap-2">
+              <div className="rounded-xl border border-amber-400/20 bg-amber-400/[.06] px-4 py-2 text-center">
+                <div className="font-spectral text-[22px] font-bold leading-tight text-amber-300">{auctionWins.length}</div>
+                <div className="text-[11px] font-semibold uppercase tracking-[.08em] text-text-dim">{auctionWins.length === 1 ? 'Item won' : 'Items won'}</div>
               </div>
-              <div className="text-[11px] text-text-dim">total coins spent</div>
+              <div className="rounded-xl border border-red-400/20 bg-red-400/[.06] px-4 py-2 text-center">
+                <div className="font-spectral text-[22px] font-bold leading-tight tabular-nums text-red-300">-{money(auctionSpent)}</div>
+                <div className="text-[11px] font-semibold uppercase tracking-[.08em] text-text-dim">Coins spent</div>
+              </div>
             </div>
           </div>
 
