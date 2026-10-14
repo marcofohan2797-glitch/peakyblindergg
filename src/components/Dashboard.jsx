@@ -207,6 +207,110 @@ const DB_STYLES = `
   @media (prefers-reduced-motion: reduce) {
     .db-root .db-lift, .db-root .db-lift:hover { transition: none; transform: none; }
   }
+
+
+  /* Next-event countdown */
+  .db-root .db-ring-fill { transition: stroke-dashoffset 1s linear, stroke .4s ease; }
+  .db-root .db-live.db-live-green { border-color: rgba(74,222,128,.3); background: rgba(74,222,128,.08); color: #86efac; }
+  .db-root .db-live-green .db-live-dot, .db-root .db-live-green .db-live-dot::after { background: #4ade80; }
+  .db-root .db-live.db-live-amber { border-color: rgba(251,191,36,.3); background: rgba(251,191,36,.08); color: #fcd34d; }
+  .db-root .db-live-amber .db-live-dot, .db-root .db-live-amber .db-live-dot::after { background: #fbbf24; }
+  .db-root .db-today { background: rgba(212,175,55,.08); box-shadow: inset 0 0 0 1px rgba(212,175,55,.25); }
+  .db-root .db-dot { position: relative; display: inline-block; width: 7px; height: 7px; border-radius: 999px; flex-shrink: 0; }
+  .db-root .db-dot-next { width: 9px; height: 9px; box-shadow: 0 0 0 2px rgba(0,0,0,.6), 0 0 10px currentColor; }
+  .db-root .db-dot-next::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; background: currentColor;
+    animation: db-ping 1.8s cubic-bezier(0,0,.2,1) infinite;
+  }
+  .db-root .db-tick { animation: db-tick .28s ease-out; }
+  @keyframes db-tick { from { transform: translateY(-20%); opacity: .45; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .db-root .db-ring-fill { transition: none; }
+    .db-root .db-dot-next::after, .db-root .db-tick { animation: none; }
+  }
+  /* Live auctions: pulse dot, featured glow, time drain, new-bid flash */
+  .db-root .db-live {
+    display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px 2px 7px; border-radius: 999px;
+    border: 1px solid rgba(248,113,113,.28); background: rgba(248,113,113,.08);
+    font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #fca5a5;
+  }
+  .db-root .db-live-dot { position: relative; display: inline-block; width: 7px; height: 7px; flex-shrink: 0; border-radius: 999px; background: #f87171; }
+  .db-root .db-live-dot::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; background: #f87171;
+    animation: db-ping 1.8s cubic-bezier(0,0,.2,1) infinite;
+  }
+  @keyframes db-ping { 0% { transform: scale(1); opacity: .75; } 80%, 100% { transform: scale(2.8); opacity: 0; } }
+  .db-root .db-feat-chip {
+    display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+    font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #1a1206;
+    background: linear-gradient(180deg, #f6dc8f 0%, #d4af37 60%, #b38d2a 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 4px 12px -6px rgba(212,175,55,.7);
+  }
+  .db-root .db-feat {
+    background:
+      radial-gradient(90% 80% at 100% 0%, rgba(242,204,96,.10) 0%, transparent 55%),
+      linear-gradient(160deg, rgba(36,29,19,.95) 0%, rgba(13,11,9,.97) 100%);
+  }
+  .db-root .db-feat::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    box-shadow: inset 0 0 0 1px rgba(242,204,96,.45), inset 0 0 48px rgba(242,204,96,.12);
+    opacity: .7;
+  }
+  @keyframes db-breathe { 50% { opacity: 1; } }
+
+  /* Featured edge light: same as the Auctions page. Desktop uses an SVG
+     outline (even speed on every side); phones/tablets use a rotating
+     gradient the GPU moves for free. */
+  @keyframes db-dash { to { stroke-dashoffset: -100; } }
+  @keyframes db-spin { to { rotate: 360deg; } }
+  .db-root .db-ft-ring {
+    position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0;
+    overflow: visible; pointer-events: none;
+  }
+  .db-root .db-ft-ring rect {
+    x: 1px; y: 1px; width: calc(100% - 2px); height: calc(100% - 2px);
+    fill: none; stroke: var(--db-c); stroke-width: 1.6; stroke-linecap: round;
+    stroke-dasharray: 9 41;
+    filter: drop-shadow(0 0 4px var(--db-c));
+    animation: db-dash 12s linear infinite;
+  }
+  .db-root .db-ft-ring2 {
+    display: none; position: absolute; inset: 0; z-index: 0; padding: 1.5px;
+    border-radius: inherit; overflow: hidden; pointer-events: none;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+  }
+  .db-root .db-ft-ring2 > span {
+    position: absolute; left: 50%; top: 50%; width: 160%; aspect-ratio: 1; translate: -50% -50%;
+    background: conic-gradient(from 0deg, transparent 0 36%, var(--db-c) 46%, transparent 56% 86%, var(--db-c) 96%, transparent 100%);
+    animation: db-spin 12s linear infinite; will-change: transform;
+  }
+  @media (hover: none), (max-width: 1023px) {
+    .db-root .db-ft-ring { display: none; }
+    .db-root .db-ft-ring2 { display: block; }
+  }
+  .db-root .db-auc[data-urgency="critical"]::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    box-shadow: inset 0 0 0 1px rgba(248,113,113,.45), inset 0 0 44px rgba(248,113,113,.12);
+    opacity: .4; will-change: opacity; animation: db-breathe 1.6s ease-in-out infinite;
+  }
+  .db-root .db-drain { height: 4px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.07); }
+  .db-root .db-drain > span {
+    display: block; width: 100%; height: 100%; border-radius: inherit; transform-origin: left center;
+    background: linear-gradient(90deg, #b38d2a, #f2d27a);
+    transition: transform 1s linear;
+  }
+  .db-root [data-urgency="soon"] .db-drain > span { background: linear-gradient(90deg, #d97706, #fbbf24); }
+  .db-root [data-urgency="critical"] .db-drain > span { background: linear-gradient(90deg, #dc2626, #f87171); }
+  .db-root .db-bump { animation: db-bump 1.2s ease-out 1; }
+  @keyframes db-bump {
+    0% { box-shadow: 0 0 0 0 rgba(242,204,96,.6); }
+    100% { box-shadow: 0 0 0 10px rgba(242,204,96,0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .db-root .db-live-dot::after, .db-root .db-ft-ring rect, .db-root .db-ft-ring2 > span, .db-root .db-auc[data-urgency="critical"]::after, .db-root .db-bump { animation: none; }
+    .db-root .db-drain > span { transition: none; }
+  }
 `
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -554,6 +658,15 @@ export default function Dashboard({ ctx, setPage }) {
       .slice(0, MAX_LIVE_AUCTIONS)
   }, [auctions])
 
+  // Featured lots (★ set on the Auctions page). When there are any, the
+  // dashboard spotlights them; otherwise it shows the regular live auctions.
+  const featuredAuctions = useMemo(() => {
+    return auctions
+      .filter(a => a.status === 'active' && isFeaturedAuction(a))
+      .sort((a, b) => (a.endsAt || 0) - (b.endsAt || 0))
+      .slice(0, 3)
+  }, [auctions])
+
   const totalActiveAuctions = useMemo(
     () => auctions.filter(a => a.status === 'active').length,
     [auctions]
@@ -594,6 +707,7 @@ export default function Dashboard({ ctx, setPage }) {
 
       <LiveAuctionsStrip
         auctions={activeAuctions}
+        featured={featuredAuctions}
         totalCount={totalActiveAuctions}
         onOpenAll={goAuctions}
         currentUser={currentUser}
@@ -684,24 +798,138 @@ const HeroSection = React.memo(function HeroSection({
 
 /* ── Upcoming Event Preview ────────────────────────────────────────── */
 
+// "13:00 – 14:00" in the subtitle → the event lasts 1 hour (0 = no known length).
+function parseEventDurationMs(ev) {
+  const m = /(\d{1,2}):(\d{2})\s*[–-]\s*(\d{1,2}):(\d{2})/.exec(ev?.subtitle || '')
+  if (!m) return 0
+  const start = Number(m[1]) * 60 + Number(m[2])
+  const end = Number(m[3]) * 60 + Number(m[4])
+  return end > start ? (end - start) * 60000 : 0
+}
+
+function splitCountdown(ms) {
+  const t = Math.max(0, Math.floor(ms / 1000))
+  const d = Math.floor(t / 86400)
+  const h = Math.floor((t % 86400) / 3600)
+  const m = Math.floor((t % 3600) / 60)
+  const s = t % 60
+  return d > 0
+    ? [[d, d === 1 ? 'Day' : 'Days'], [h, 'Hrs'], [m, 'Min']]
+    : [[h, 'Hrs'], [m, 'Min'], [s, 'Sec']]
+}
+
+function CountdownRing({ progress, color, type, size }) {
+  const pct = Math.min(1, Math.max(0, progress))
+  return (
+    <div className={`relative shrink-0 ${size}`} aria-hidden="true">
+      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+        <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,.07)" strokeWidth="6" />
+        <circle cx="50" cy="50" r="44" fill="none" stroke={color} strokeWidth="6" strokeLinecap="round"
+          pathLength="100" strokeDasharray="100" strokeDashoffset={100 - pct * 100}
+          className="db-ring-fill" style={{ filter: `drop-shadow(0 0 5px ${color}88)` }} />
+      </svg>
+      <div className="absolute inset-[18%] flex items-center justify-center rounded-full border"
+        style={{ color, borderColor: `${color}40`, background: `radial-gradient(circle, ${color}22, ${color}08 70%)` }}>
+        <TypeIcon type={type} size={26} />
+      </div>
+    </div>
+  )
+}
+
+function CountdownDigits({ ms, color, caption }) {
+  const parts = splitCountdown(ms)
+  return (
+    <div className="min-w-0">
+      <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-text-dim sm:text-right">{caption}</div>
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+        {parts.map(([value, label]) => (
+          <div key={label} className="db-inset min-w-0 rounded-xl px-2 py-2 text-center sm:min-w-[64px] sm:px-2.5">
+            <div className="overflow-hidden font-mono text-[1.45rem] font-bold leading-none tabular-nums sm:text-[1.6rem]" style={{ color }}>
+              <span key={value} className="db-tick inline-block">{String(value).padStart(2, '0')}</span>
+            </div>
+            <div className="mt-1 text-[10.5px] font-bold uppercase tracking-[0.12em] text-text-dim">{label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Mon → Sun strip: a dot per event. Done = faded, next = glowing, live = pulsing.
+function WeekStrip({ now, highlight }) {
+  const today = getZoneParts(now, SERVER_TZ)
+  const todayIdx = DAY_ORDER.indexOf(today.dow)
+  const nowMin = today.hh * 60 + today.mm
+
+  return (
+    <div className="grid grid-cols-7 gap-1 sm:gap-1.5" role="list" aria-label="This week's events">
+      {DAY_ORDER.map((dow, idx) => {
+        const events = SCHEDULE_BY_DAY[dow] || []
+        const isToday = idx === todayIdx
+        return (
+          <div key={dow} role="listitem"
+            className={`flex min-w-0 flex-col items-center gap-1.5 rounded-xl px-0.5 py-2 ${isToday ? 'db-today' : ''}`}>
+            <span className={`text-[11px] font-bold uppercase tracking-[0.08em] ${isToday ? 'text-gold-bright' : idx < todayIdx ? 'text-text-dim/55' : 'text-text-dim'}`}>
+              {isToday ? 'Today' : DAY_SHORT[dow]}
+            </span>
+            <div className="flex min-h-[10px] flex-wrap items-center justify-center gap-[4px]">
+              {events.map(ev => {
+                const [h, m] = ev.time.split(':').map(Number)
+                const startMin = h * 60 + m
+                const durMin = parseEventDurationMs(ev) / 60000
+                const isHighlight = highlight && highlight.dow === dow && highlight.time === ev.time
+                const done = idx < todayIdx || (idx === todayIdx && nowMin >= startMin + Math.max(durMin, 1) && !isHighlight)
+                const color = TYPE[ev.type]?.color || '#f2cc60'
+                return (
+                  <span key={ev.time + ev.name}
+                    title={`${DAY_SHORT[dow]} ${to12h(ev.time)} · ${ev.name}`}
+                    className={`db-dot ${isHighlight ? 'db-dot-next' : ''}`}
+                    style={{ background: color, color, opacity: done ? 0.28 : 1 }} />
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// The ring fills up over the last 6 hours before an event starts.
+const RING_WINDOW_MS = 6 * 60 * 60 * 1000
+
 const UpcomingEventPreview = React.memo(function UpcomingEventPreview({ onOpenCalendar }) {
   const now = useNow()
 
-  const next = useMemo(() => {
-    let best = null
-    for (const ev of ALL_EVENTS) {
+  const info = useMemo(() => {
+    const occ = ALL_EVENTS.map(ev => {
       const nextTs = nextOccurrenceInZone(ev.dow, ev.time, now, SERVER_TZ)
-      if (!best || nextTs < best.nextTs) best = { ...ev, nextTs }
-    }
-    return best
+      return { ...ev, nextTs, lastTs: nextTs - WEEK_MS, durMs: parseEventDurationMs(ev) }
+    })
+    occ.sort((a, b) => a.nextTs - b.nextTs)
+    const live = occ.find(e => e.durMs > 0 && now >= e.lastTs && now < e.lastTs + e.durMs) || null
+    const prevTs = Math.max(...occ.map(e => e.lastTs))
+    return { live, next: occ[0] || null, after: occ[1] || null, prevTs }
   }, [now])
 
-  if (!next) return null
+  if (!info.next) return null
 
-  const type = TYPE[next.type]
-  const remaining = Math.max(0, next.nextTs - now)
-  const localEq = formatInAutoLocalZone(next.nextTs)
-  const urgent = remaining > 0 && remaining < EVENT_URGENT_MS
+  const isLive = Boolean(info.live)
+  const main = isLive ? info.live : info.next
+  const upNext = isLive ? info.next : info.after
+  const type = TYPE[main.type]
+  const startTs = isLive ? main.lastTs : main.nextTs
+  const remaining = isLive
+    ? Math.max(0, main.lastTs + main.durMs - now)
+    : Math.max(0, main.nextTs - now)
+  const progress = isLive
+    ? (now - main.lastTs) / main.durMs
+    : 1 - remaining / Math.min(RING_WINDOW_MS, Math.max(1, main.nextTs - info.prevTs))
+  const localEq = formatInAutoLocalZone(startTs)
+  const soon = !isLive && remaining < EVENT_URGENT_MS
+  const verySoon = !isLive && remaining < 10 * 60 * 1000
+  const accent = isLive ? '#4ade80' : soon ? '#fbbf24' : type.color
+  const digitColor = isLive ? '#86efac' : soon ? '#fcd34d' : '#f4ebd9'
 
   return (
     <section aria-label="Upcoming clan event" className="relative">
@@ -713,7 +941,7 @@ const UpcomingEventPreview = React.memo(function UpcomingEventPreview({ onOpenCa
               aria-hidden="true"
             />
             <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-text-dim">
-              Next Event
+              {isLive ? 'Happening Now' : 'Next Event'}
             </span>
           </div>
           <h2 className="font-spectral text-[1.5rem] font-bold leading-none text-text-bright sm:text-[1.75rem]">
@@ -733,75 +961,91 @@ const UpcomingEventPreview = React.memo(function UpcomingEventPreview({ onOpenCa
       <button
         type="button"
         onClick={onOpenCalendar}
-        aria-label={`Open Clan Calendar — ${next.name}, ${to12h(next.time)} server time`}
-        className="db-glass db-lift group relative block w-full min-w-0 cursor-pointer overflow-hidden rounded-[20px] text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold/60"
-        style={{ '--db-rim': `${type.color}66` }}
+        aria-label={`Open Clan Calendar — ${main.name}, ${to12h(main.time)} server time, ${isLive ? 'happening now' : `starts in ${formatCountdown(remaining)}`}`}
+        className="db-glass db-solid db-lift group relative block w-full min-w-0 cursor-pointer overflow-hidden rounded-[22px] text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold/60"
+        style={{ '--db-rim': `${accent}66` }}
       >
         <div
           className="absolute inset-y-0 left-0 w-[3px] transition-all duration-200 group-hover:w-[4px]"
-          style={{ background: type.color, boxShadow: `0 0 16px ${type.color}35` }}
+          style={{ background: accent, boxShadow: `0 0 16px ${accent}35` }}
           aria-hidden="true"
         />
+        <div className="pointer-events-none absolute -left-10 -top-16 h-56 w-56 rounded-full opacity-60"
+          style={{ background: `radial-gradient(circle, ${accent}18, transparent 68%)` }} aria-hidden="true" />
 
-        <div className="flex min-w-0 flex-col gap-3 px-3.5 py-3.5 sm:flex-row sm:items-center sm:gap-5 sm:px-5 sm:py-[18px]">
-          <div className="flex min-w-0 items-start gap-3 sm:contents">
-            <div
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-colors duration-200 group-hover:brightness-110 sm:h-12 sm:w-12"
-              style={{
-                color: type.color,
-                borderColor: `${type.color}66`,
-                background: `${type.color}1f`,
-              }}
-              aria-hidden="true"
-            >
-              <TypeIcon type={next.type} size={22} />
-            </div>
+        <div className="relative px-4 py-4 sm:px-5 sm:py-5">
+          <div className="flex min-w-0 items-center gap-3.5 sm:gap-5">
+            <CountdownRing progress={progress} color={accent} type={main.type} size="h-[78px] w-[78px] sm:h-[104px] sm:w-[104px]" />
 
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-1.5">
-                <span
-                  className="shrink-0 text-[11px] font-bold uppercase tracking-[0.13em] sm:text-[11px] sm:tracking-[0.12em]"
-                  style={{ color: type.color }}
-                >
+            <div className="min-w-0 flex-1 xl:flex-[1_1_0%]">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.13em]" style={{ color: type.color }}>
                   {type.label}
                 </span>
-                <span className="truncate text-[11px] text-text-dim sm:text-[11px]">
-                  {DAY_NAMES[next.dow].slice(0, 3)} · {to12h(next.time)}
-                </span>
-              </div>
-
-              <div className="mt-0.5 truncate text-[15px] font-semibold text-text-bright transition-colors group-hover:text-gold-light sm:text-[16px]">
-                {next.name}
-              </div>
-
-              <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-text-dim sm:text-[11px]">
-                {next.boss && (
-                  <span className="truncate">Boss: <span className="text-text-bright/90">{next.boss}</span></span>
+                {isLive ? (
+                  <span className="db-live db-live-green"><span className="db-live-dot" aria-hidden="true" />Live Now</span>
+                ) : verySoon ? (
+                  <span className="db-live db-live-amber"><span className="db-live-dot" aria-hidden="true" />Starting Soon</span>
+                ) : (
+                  <span className="truncate text-[12px] text-text-dim">
+                    {DAY_NAMES[main.dow].slice(0, 3)} · {to12h(main.time)} server
+                  </span>
                 )}
+              </div>
+
+              <div className="mt-1 truncate font-spectral text-[1.2rem] font-bold leading-tight text-text-bright transition-colors group-hover:text-gold-light sm:text-[1.55rem] xl:text-[1.4rem]">
+                {main.name}
+              </div>
+
+              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12px] text-text-dim">
+                {main.boss && (
+                  <span className="truncate">Boss: <span className="text-text-bright/90">{main.boss}</span></span>
+                )}
+                {!main.boss && main.subtitle && <span className="truncate">{main.subtitle}</span>}
                 {localEq && (
                   <>
-                    {next.boss && <span className="text-white/15">·</span>}
-                    <span className="truncate text-gold-light/80">
+                    <span className="text-white/15">·</span>
+                    <span className="truncate text-gold-light/85">
                       {localEq.day.slice(0, 3)} {localEq.time} your time
                     </span>
                   </>
                 )}
               </div>
+
+              {upNext && (
+                <div className="mt-1.5 hidden min-w-0 truncate text-[12px] text-text-dim xl:block">
+                  Then <span className="font-semibold" style={{ color: TYPE[upNext.type]?.color }}>{upNext.name}</span>
+                  {' '}· {DAY_SHORT[upNext.dow]} {to12h(upNext.time)}
+                </div>
+              )}
+            </div>
+
+            {/* Wide screens: the week sits in the middle instead of its own row */}
+            <div className="hidden min-w-0 self-stretch border-x border-white/[0.07] px-4 xl:flex xl:flex-[1.15_1_0%] xl:flex-col xl:justify-center">
+              <div className="mb-1.5 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-text-dim">This Week</div>
+              <div className="mx-auto w-full max-w-[520px]"><WeekStrip now={now} highlight={main} /></div>
+            </div>
+
+            <div className="hidden shrink-0 sm:block">
+              <CountdownDigits ms={remaining} color={digitColor} caption={isLive ? 'Ends in' : 'Starts in'} />
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-white/[0.06] pt-2.5 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0 sm:text-right">
-            <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-dim sm:text-[11px] sm:tracking-[0.14em]">
-              Starts in
+          <div className="mt-3.5 sm:hidden">
+            <CountdownDigits ms={remaining} color={digitColor} caption={isLive ? 'Ends in' : 'Starts in'} />
+          </div>
+
+          <div className="mt-4 border-t border-white/[0.07] pt-3 xl:hidden">
+            <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
+              <span className="hidden shrink-0 text-[11px] font-bold uppercase tracking-[0.14em] text-text-dim sm:inline">This Week</span>
+              {upNext && (
+                <span className="min-w-0 truncate text-[12px] text-text-dim">
+                  Then <span className="font-semibold" style={{ color: TYPE[upNext.type]?.color }}>{upNext.name}</span>
+                  {' '}· {DAY_SHORT[upNext.dow]} {to12h(upNext.time)}
+                </span>
+              )}
             </div>
-            <div
-              className={`whitespace-nowrap font-mono text-[17px] font-bold leading-none tabular-nums sm:text-[17px] ${
-                urgent ? 'motion-safe:animate-pulse' : ''
-              }`}
-              style={{ color: urgent ? '#fcd34d' : '#f2cc60' }}
-            >
-              {formatCountdown(remaining)}
-            </div>
+            <WeekStrip now={now} highlight={main} />
           </div>
         </div>
       </button>
@@ -811,29 +1055,67 @@ const UpcomingEventPreview = React.memo(function UpcomingEventPreview({ onOpenCa
 
 /* ── Live Auctions ─────────────────────────────────────────────────── */
 
+const isFeaturedAuction = a => a?.isFeatured === true || a?.is_featured === true
+
+// Share of the auction time still left (1 → just started, 0 → ended).
+// Returns null when the start time is unknown, so the bar is simply hidden.
+function getAuctionProgress(a, now) {
+  const end = Number(a?.endsAt) || 0
+  const start = Number(a?.startedAt ?? a?.started_at) || 0
+  if (!end || !start || end <= start) return null
+  return Math.min(1, Math.max(0, (end - now) / (end - start)))
+}
+
+// Time of the newest bid only. Blind bidding: never the bidder or the amount.
+function getLastBidTime(a) {
+  const bids = Array.isArray(a?.bids) ? a.bids : []
+  let latest = 0
+  for (const b of bids) {
+    const t = Number(b?.time) || 0
+    if (!b?.cancelled && t > latest) latest = t
+  }
+  return latest
+}
+
+function getUrgency(remaining) {
+  if (remaining <= 0) return 'ended'
+  if (remaining < URGENT_MS) return 'critical'
+  if (remaining < EVENT_URGENT_MS) return 'soon'
+  return 'calm'
+}
+
 const LiveAuctionsStrip = React.memo(function LiveAuctionsStrip({
-  auctions, totalCount, onOpenAll, currentUser,
+  auctions, featured = [], totalCount, onOpenAll, currentUser,
 }) {
   const now = useNow()
   if (totalCount === 0) return null
 
-  const visibleAuctions = auctions.slice(0, 3)
+  const hasFeatured = featured.length > 0
+  const visibleAuctions = hasFeatured ? featured : auctions.slice(0, 3)
   const remainingCount = Math.max(0, totalCount - visibleAuctions.length)
   const single = visibleAuctions.length === 1
+  const gridClass = single
+    ? 'grid min-w-0'
+    : visibleAuctions.length === 2
+      ? 'grid min-w-0 gap-3 md:grid-cols-2'
+      : 'grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3'
 
   return (
-    <section className="relative min-w-0" aria-label="Live auctions">
+    <section className="relative min-w-0" aria-label={hasFeatured ? 'Featured auctions' : 'Live auctions'}>
       <div className="mb-2.5 flex min-w-0 items-end justify-between gap-2 sm:mb-3 sm:gap-3">
         <div className="min-w-0">
-          <div className="mb-1.5 flex items-center gap-2.5">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.7)]" aria-hidden="true" />
+          <div className="mb-1.5 flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-text-dim">Market</span>
-            <span className="rounded-full border border-red-400/20 bg-red-400/[0.06] px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.1em] text-red-300">
-              {totalCount} Active
+            <span className="db-live">
+              <span className="db-live-dot" aria-hidden="true" />
+              {totalCount} Live
             </span>
+            {hasFeatured && (
+              <span className="db-feat-chip">★ Featured</span>
+            )}
           </div>
           <h2 className="font-spectral text-[1.5rem] font-bold leading-none text-text-bright sm:text-[1.75rem]">
-            Live Auctions
+            {hasFeatured ? (single ? 'Featured Auction' : 'Featured Auctions') : 'Live Auctions'}
           </h2>
         </div>
         <button type="button" onClick={onOpenAll}
@@ -842,204 +1124,207 @@ const LiveAuctionsStrip = React.memo(function LiveAuctionsStrip({
         </button>
       </div>
 
-      <div className={single ? 'grid min-w-0' : 'grid min-w-0 gap-3 lg:grid-cols-2 2xl:grid-cols-3'}>
+      <div className={gridClass}>
         {visibleAuctions.map(a => (
           <LiveAuctionCard key={a.id} auction={a} now={now}
-            currentUserName={currentUser?.name} onOpenAll={onOpenAll} wide={single} />
+            currentUserName={currentUser?.name} onOpenAll={onOpenAll}
+            wide={single} featured={hasFeatured} />
         ))}
       </div>
 
       {remainingCount > 0 && (
         <button type="button" onClick={onOpenAll}
           className="db-chip mt-3 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-gold-light hover:text-gold-bright focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold/60">
-          +{remainingCount} More {remainingCount === 1 ? 'Auction' : 'Auctions'} <span aria-hidden="true">→</span>
+          +{remainingCount} More {hasFeatured ? 'Live ' : ''}{remainingCount === 1 ? 'Auction' : 'Auctions'} <span aria-hidden="true">→</span>
         </button>
       )}
     </section>
   )
 })
 
+// Bidder count + "last bid 3m ago". Flashes once when a new bid comes in.
+function BidPulse({ bidderCount, lastBidAt, now }) {
+  const prevRef = useRef(lastBidAt)
+  const [flash, setFlash] = useState(false)
+
+  useEffect(() => {
+    if (lastBidAt > prevRef.current) {
+      setFlash(true)
+      const id = setTimeout(() => setFlash(false), 1300)
+      prevRef.current = lastBidAt
+      return () => clearTimeout(id)
+    }
+    prevRef.current = lastBidAt
+    return undefined
+  }, [lastBidAt])
+
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11.5px] font-bold tracking-wide ${
+        bidderCount === 0
+          ? 'border-white/[.12] bg-white/[.025] text-text-dim'
+          : 'border-gold/25 bg-gold/[.055] text-gold-light'
+      } ${flash ? 'db-bump' : ''}`}>
+        {bidderCount > 0 && (
+          <span className="mr-1 font-mono text-gold-bright">{bidderCount}</span>
+        )}
+        {bidderCount === 0 ? 'No Players Bidding' : bidderCount === 1 ? 'Player Bidding' : 'Players Bidding'}
+      </span>
+      <span className="truncate text-[11.5px] text-text-dim">
+        {lastBidAt > 0
+          ? <>Last bid <span className={flash ? 'font-semibold text-gold-bright' : 'text-text-bright'}>{formatRelativePast(now - lastBidAt).toLowerCase()}</span></>
+          : 'Be the first to bid'}
+      </span>
+    </div>
+  )
+}
+
+function TimeDrain({ progress }) {
+  if (progress === null) return null
+  return (
+    <div className="db-drain" role="presentation">
+      <span style={{ transform: `scaleX(${progress})` }} />
+    </div>
+  )
+}
+
 const LiveAuctionCard = React.memo(function LiveAuctionCard({
-  auction: a, now, currentUserName, onOpenAll, wide = false,
+  auction: a, now, currentUserName, onOpenAll, wide = false, featured = false,
 }) {
   const rarity = RARITY_COLORS[a.rarity] || RARITY_COLORS.epic
   const remaining = Math.max(0, (a.endsAt || 0) - now)
-  const isEnding = remaining > 0 && remaining < URGENT_MS
+  const urgency = getUrgency(remaining)
+  const isEnding = urgency === 'critical'
   const timeLabel = formatAuctionTime(remaining)
+  const progress = getAuctionProgress(a, now)
+  const lastBidAt = getLastBidTime(a)
 
   // All active clan auctions use blind bidding. The dashboard never exposes
   // another member's identity or current/highest bid. It only shows the
-  // number of active bidders, preserving blind-bid privacy.
-  // `currentBid` is retained here only as the stored starting-bid display
-  // value used by the existing dashboard data shape.
+  // number of active bidders and when the latest bid happened.
   const startingBid = Number(a.startBid ?? a.minBid ?? a.currentBid ?? 0)
-
   const bidderCount = getLiveAuctionBidderCount(a)
 
   const cardLabel =
-    `${a.name}, ${a.rarity} rarity, blind auction, starting bid ${startingBid.toLocaleString()} coins, ` +
+    `${featured ? 'Featured, ' : ''}${a.name}, ${a.rarity} rarity, blind auction, starting bid ${startingBid.toLocaleString()} coins, ` +
     `${bidderCount === 0 ? 'no players' : `${bidderCount} ${bidderCount === 1 ? 'player' : 'players'}`} bidding, bid details hidden, ends in ${timeLabel}`
 
+  const rim = isEnding ? 'rgba(248,113,113,.55)' : featured ? 'rgba(242,204,96,.6)' : `${rarity.color}59`
+  const timeColor = isEnding ? '#f87171' : urgency === 'soon' ? '#fbbf24' : '#f4ebd9'
+
+  const thumb = (sizeClass) => (
+    <div className={`relative shrink-0 overflow-hidden rounded-xl border bg-black/45 shadow-[0_8px_24px_rgba(0,0,0,0.42)] ${sizeClass}`}
+      style={{ borderColor: `${rarity.color}50`, boxShadow: `inset 0 0 28px ${rarity.color}18, 0 8px 24px rgba(0,0,0,.42)` }}>
+      {a.imageUrl ? (
+        <img src={a.imageUrl} alt="" width={120} height={120} loading="lazy"
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+          onError={(e) => { e.currentTarget.style.display = 'none' }} />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center font-spectral text-3xl font-bold"
+          style={{ color: rarity.color }} aria-hidden="true">
+          {a.name.charAt(0).toUpperCase()}
+        </span>
+      )}
+    </div>
+  )
+
+  const chips = (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {featured && wide && <span className="db-feat-chip">★ Featured</span>}
+      <span className="inline-flex rounded-full border px-2 py-[3px] text-[10.5px] font-bold uppercase tracking-[0.12em]"
+        style={{ color: rarity.color, borderColor: `${rarity.color}35`, background: `${rarity.color}0c` }}>
+        {a.rarity}
+      </span>
+      <span className="inline-flex rounded-full db-chip db-chip-gold px-2 py-[3px] text-[10.5px] font-bold uppercase tracking-[0.08em] text-gold-light">
+        Blind
+      </span>
+      {isEnding && (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-red-400/25 bg-red-400/[0.08] px-2 py-[3px] text-[10.5px] font-bold uppercase tracking-[0.08em] text-red-300">
+          <span className="db-live-dot" aria-hidden="true" />
+          Ending Soon
+        </span>
+      )}
+    </div>
+  )
+
+  const stats = (
+    <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-2.5">
+      <div className="min-w-0 rounded-xl db-inset db-inset-gold px-3 py-2.5">
+        <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-dim">Starting Bid</div>
+        <div className="mt-1.5 flex min-w-0 items-baseline gap-1.5">
+          <span className="truncate font-mono text-[1.3rem] font-bold leading-none tabular-nums text-text-bright">
+            {startingBid.toLocaleString()}
+          </span>
+          <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">Coins</span>
+        </div>
+      </div>
+      <div className={`min-w-0 rounded-xl border px-3 py-2.5 text-right ${isEnding ? 'border-red-400/30 bg-red-400/[0.08]' : urgency === 'soon' ? 'border-amber-300/20 bg-amber-300/[0.05]' : 'db-inset'}`}>
+        <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-dim">
+          {urgency === 'soon' ? 'Final Hour' : 'Ends In'}
+        </div>
+        <div className={`mt-1.5 truncate font-mono text-[1.3rem] font-bold leading-none tabular-nums ${isEnding ? 'motion-safe:animate-pulse' : ''}`}
+          style={{ color: timeColor }}>
+          {timeLabel}
+        </div>
+      </div>
+    </div>
+  )
+
   return (
-    <button type="button" onClick={onOpenAll} aria-label={cardLabel}
-      className="db-glass db-solid db-lift group relative w-full min-w-0 overflow-hidden rounded-[22px] text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold/60"
-      style={{ '--db-rim': `${rarity.color}59` }}>
+    <button type="button" onClick={onOpenAll} aria-label={cardLabel} data-urgency={urgency}
+      className={`db-glass db-solid db-lift db-auc group relative w-full min-w-0 overflow-hidden rounded-[22px] text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold/60 ${featured ? 'db-feat' : ''}`}
+      style={{ '--db-rim': rim, '--db-c': rarity.color }}>
+      {featured && (
+        <>
+          <svg className="db-ft-ring" aria-hidden="true">
+            <rect x="1" y="1" width="100%" height="100%" rx="21" ry="21" pathLength="100" />
+          </svg>
+          <div className="db-ft-ring2" aria-hidden="true"><span /></div>
+        </>
+      )}
       <span className="absolute inset-y-5 left-0 w-[3px] rounded-full"
         style={{ background: rarity.color, boxShadow: `0 0 18px ${rarity.color}55` }} aria-hidden="true" />
-      <div className="pointer-events-none absolute right-0 top-0 h-56 w-56 opacity-45"
-        style={{ background: `radial-gradient(circle at center, ${rarity.color}12, transparent 68%)` }} aria-hidden="true" />
+      <div className="pointer-events-none absolute right-0 top-0 h-56 w-56 opacity-50"
+        style={{ background: `radial-gradient(circle at center, ${featured ? 'rgba(242,204,96,.10)' : `${rarity.color}12`}, transparent 68%)` }} aria-hidden="true" />
 
       {wide ? (
-        <div className="relative flex min-w-0 flex-col gap-1.5 p-3 pl-5 sm:flex-row sm:items-center sm:gap-4 sm:p-4 sm:pl-6 lg:gap-5 lg:p-[18px] lg:pl-7">
-          <div className="flex min-w-0 items-center gap-2.5 sm:contents">
-            <div className="relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-xl border bg-black/40 shadow-[0_8px_24px_rgba(0,0,0,0.42)] sm:h-[78px] sm:w-[78px] lg:h-[88px] lg:w-[88px]"
-              style={{ borderColor: `${rarity.color}45` }}>
-              {a.imageUrl ? (
-                <img src={a.imageUrl} alt="" width={104} height={104} loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-                  onError={(e) => { e.currentTarget.style.display = 'none' }} />
-              ) : (
-                <span className="flex h-full w-full items-center justify-center font-spectral text-2xl font-bold sm:text-4xl"
-                  style={{ color: rarity.color }} aria-hidden="true">
-                  {a.name.charAt(0).toUpperCase()}
-                </span>
-              )}
-              <span className="absolute inset-0 rounded-xl ring-1 ring-inset"
-                style={{ boxShadow: `inset 0 0 28px ${rarity.color}18` }} aria-hidden="true" />
+        <div className="relative p-4 pl-5 sm:p-5 sm:pl-6 lg:pl-7">
+          <div className="flex min-w-0 flex-col gap-3.5 sm:flex-row sm:items-center sm:gap-5">
+            <div className="flex min-w-0 flex-1 items-center gap-3.5 sm:gap-5">
+              {thumb(featured ? 'h-[84px] w-[84px] sm:h-[112px] sm:w-[112px] lg:h-[124px] lg:w-[124px]' : 'h-[72px] w-[72px] sm:h-[88px] sm:w-[88px]')}
+              <div className="min-w-0 flex-1">
+                {chips}
+                <div className={`mt-1.5 truncate font-spectral font-bold leading-tight ${featured ? 'text-[1.35rem] sm:text-[1.75rem] lg:text-[2rem]' : 'text-[1.2rem] sm:text-[1.5rem]'}`}
+                  style={{ color: rarity.color }}>
+                  {a.name}
+                </div>
+                <div className="mt-2">
+                  <BidPulse bidderCount={bidderCount} lastBidAt={lastBidAt} now={now} />
+                </div>
+              </div>
             </div>
-
-            <div className="min-w-0 flex-1 sm:min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                <span className="rounded-full border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.14em] sm:px-2 sm:py-1 sm:text-[11px] sm:tracking-[0.12em]"
-                  style={{ color: rarity.color, borderColor: `${rarity.color}35`, background: `${rarity.color}0c` }}>
-                  {a.rarity}
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full db-chip db-chip-gold px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-gold-light sm:px-2 sm:py-1 sm:text-[11px]">
-                  Blind
-                </span>
-                {isEnding && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-red-400/20 bg-red-400/[0.06] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.07em] text-red-300 sm:gap-1.5 sm:px-2 sm:py-1 sm:text-[11px] sm:tracking-[0.08em]">
-                    <span className="h-1.5 w-1.5 rounded-full bg-red-400 motion-safe:animate-pulse" aria-hidden="true" />
-                    Ending Soon
-                  </span>
-                )}
-              </div>
-
-              <div className="mt-0.5 truncate font-spectral text-[1.05rem] font-bold leading-tight sm:mt-1.5 sm:text-[1.4rem] lg:text-[1.6rem]" style={{ color: rarity.color }}>
-                {a.name}
-              </div>
-
-              <div className="mt-1.5">
-                <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold tracking-wide ${
-                  bidderCount === 0
-                    ? 'border-white/[.12] bg-white/[.025] text-text-dim'
-                    : 'border-gold/25 bg-gold/[.055] text-gold-light'
-                }`}>
-                  {bidderCount > 0 && (
-                    <span className="font-mono text-[11px] text-gold-bright">{bidderCount}</span>
-                  )}
-                  <span className={bidderCount > 0 ? 'ml-1' : ''}>
-                    {bidderCount === 0 ? 'No Players Bidding' : bidderCount === 1 ? 'Player Bidding' : 'Players Bidding'}
-                  </span>
-                </span>
-                
-              </div>
+            <div className="w-full shrink-0 sm:w-[300px] lg:w-[340px]">
+              {stats}
             </div>
           </div>
-
-          <div className="hidden h-[68px] w-px shrink-0 bg-white/[0.07] lg:block" />
-
-          <div className="grid w-full min-w-0 shrink-0 grid-cols-2 gap-2 sm:w-[280px] sm:gap-2.5 lg:w-[320px] lg:gap-3">
-            <div className="min-w-0 rounded-xl db-inset db-inset-gold px-3 py-1.5 sm:px-3.5 sm:py-3">
-              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-dim sm:text-[11px] sm:tracking-[0.12em]">Starting Bid</div>
-              <div className="mt-1 flex min-w-0 items-baseline gap-1 sm:mt-2 sm:gap-1.5">
-                <span className="truncate font-mono text-[1.15rem] font-bold leading-none tabular-nums text-text-bright sm:text-[1.45rem]">
-                  {startingBid.toLocaleString()}
-                </span>
-                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.06em] text-text-dim sm:text-[11px] sm:tracking-[0.08em]">Coins</span>
-              </div>
-            </div>
-
-            <div className={`min-w-0 rounded-xl border px-3 py-1.5 text-right sm:px-3.5 sm:py-3 ${isEnding ? 'border-red-400/25 bg-red-400/[0.07]' : 'db-inset'}`}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-dim sm:text-[11px] sm:tracking-[0.12em]">Ends In</div>
-              <div className={`mt-1 truncate font-mono text-[1.05rem] font-bold leading-none tabular-nums sm:mt-1.5 sm:text-[1.25rem] lg:text-[1.35rem] ${isEnding ? 'motion-safe:animate-pulse' : ''}`}
-                style={{ color: isEnding ? '#f87171' : '#f4ebd9' }}>
-                {timeLabel}
-              </div>
-            </div>
-          </div>
+          {progress !== null && <div className="mt-4"><TimeDrain progress={progress} /></div>}
         </div>
       ) : (
         <div className="relative flex min-w-0 flex-col p-4 pl-5 sm:p-[18px] sm:pl-6">
-          <div className="flex min-w-0 items-start gap-4">
-            <div className="relative h-[78px] w-[78px] shrink-0 overflow-hidden rounded-xl border bg-black/50 shadow-[0_7px_20px_rgba(0,0,0,0.38)]"
-              style={{ borderColor: `${rarity.color}45` }}>
-              {a.imageUrl ? (
-                <img src={a.imageUrl} alt="" width={78} height={78} loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-                  onError={(e) => { e.currentTarget.style.display = 'none' }} />
-              ) : (
-                <span className="flex h-full w-full items-center justify-center font-spectral text-3xl font-bold"
-                  style={{ color: rarity.color }} aria-hidden="true">
-                  {a.name.charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
-
+          <div className="flex min-w-0 items-start gap-3.5">
+            {thumb('h-[74px] w-[74px] sm:h-[80px] sm:w-[80px]')}
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex rounded-full border px-2 py-1 text-[11px] font-bold uppercase tracking-[0.12em]"
-                  style={{ color: rarity.color, borderColor: `${rarity.color}35`, background: `${rarity.color}0c` }}>
-                  {a.rarity}
-                </span>
-                <span className="inline-flex rounded-full db-chip db-chip-gold px-2 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-gold-light">
-                  Blind
-                </span>
-              </div>
-
-              <div className="mt-1.5 truncate font-spectral text-[1.45rem] font-bold leading-tight" style={{ color: rarity.color }}>
+              {chips}
+              <div className="mt-1.5 truncate font-spectral text-[1.3rem] font-bold leading-tight" style={{ color: rarity.color }}>
                 {a.name}
               </div>
-
-              <div className="mt-1.5">
-                <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold tracking-wide ${
-                  bidderCount === 0
-                    ? 'border-white/[.12] bg-white/[.025] text-text-dim'
-                    : 'border-gold/25 bg-gold/[.055] text-gold-light'
-                }`}>
-                  {bidderCount > 0 && (
-                    <span className="font-mono text-[11px] text-gold-bright">{bidderCount}</span>
-                  )}
-                  <span className={bidderCount > 0 ? 'ml-1' : ''}>
-                    {bidderCount === 0 ? 'No Players Bidding' : bidderCount === 1 ? 'Player Bidding' : 'Players Bidding'}
-                  </span>
-                </span>
-                
-              </div>
             </div>
           </div>
-
-          <div className="my-2.5 border-t border-white/[0.07]" />
-
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="rounded-xl db-inset db-inset-gold px-3 py-2.5">
-              <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-dim">Starting Bid</div>
-              <div className="mt-1 flex items-baseline gap-1.5">
-                <span className="font-mono text-[1.35rem] font-bold leading-none tabular-nums text-text-bright">
-                  {startingBid.toLocaleString()}
-                </span>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">Coins</span>
-              </div>
-            </div>
-
-            <div className={`rounded-xl border px-3 py-2.5 text-right ${isEnding ? 'border-red-400/25 bg-red-400/[0.07]' : 'db-inset'}`}>
-              <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-dim">Ends In</div>
-              <div className={`mt-1 font-mono text-[1.25rem] font-bold leading-none tabular-nums ${isEnding ? 'motion-safe:animate-pulse' : ''}`}
-                style={{ color: isEnding ? '#f87171' : '#f4ebd9' }}>
-                {timeLabel}
-              </div>
-            </div>
+          <div className="mt-2.5">
+            <BidPulse bidderCount={bidderCount} lastBidAt={lastBidAt} now={now} />
           </div>
+          <div className="mt-3">{stats}</div>
+          {progress !== null && <div className="mt-3"><TimeDrain progress={progress} /></div>}
         </div>
       )}
     </button>
