@@ -1362,7 +1362,7 @@ function App() {
       case 'marketplace': return <Marketplace ctx={ctx} />
       case 'loot-roulette': return <LootRoulette ctx={ctx} />
       case 'leaderboard': return <Leaderboard ctx={ctx} />
-      case 'calendar':    return <EventCalendar setPage={setPage} />
+      case 'calendar':    return <EventCalendar ctx={ctx} setPage={setPage} />
       case 'notice-board': return <NoticeBoard ctx={ctx} />
       case 'admin-log':   return <AdminAuditLog ctx={ctx} />
       default:            return <Dashboard   ctx={ctx} setPage={setPage} />
