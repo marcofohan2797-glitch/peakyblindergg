@@ -1149,7 +1149,8 @@ function ScheduleEditor({ schedule, onClose, onSave }) {
 
         {/* Rows */}
         <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
-          <div className="mb-2 hidden grid-cols-[84px_80px_150px_minmax(0,1.3fr)_minmax(0,1fr)_36px] gap-2 px-1 text-[11px] font-bold uppercase tracking-[.1em] text-text-dim sm:grid">
+          {/* Same columns, gaps and padding as the rows below, so each label sits centered over its box */}
+          <div className="mb-2 hidden grid-cols-[84px_80px_150px_minmax(0,1.3fr)_minmax(0,1fr)_36px] gap-2 border border-transparent pl-3 pr-2 text-center text-[11px] font-bold uppercase tracking-[.1em] text-text-dim sm:grid">
             <span>Day</span><span>Time</span><span>Type</span><span>Event name</span><span>Boss / note</span><span />
           </div>
 
