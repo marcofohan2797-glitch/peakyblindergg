@@ -34,8 +34,8 @@ const TYPE_META = {
   attendance: {
     label: 'Attendance',
     icon: '📋',
-    tile: 'border-emerald-400/25 bg-emerald-400/[.07]',
-    pill: 'border-emerald-400/25 bg-emerald-400/[.07] text-emerald-300',
+    tile: 'border-sky-400/25 bg-sky-400/[.08]',
+    pill: 'border-sky-400/30 bg-sky-400/[.08] text-sky-300',
   },
   perfect: {
     label: 'Perfect Attendance',
@@ -59,6 +59,7 @@ const TYPE_META = {
 
 const STAT_TONES = {
   emerald: { tile: 'border-emerald-400/25 bg-emerald-400/[.07]', value: 'text-emerald-300' },
+  sky: { tile: 'border-sky-400/25 bg-sky-400/[.08]', value: 'text-sky-300' },
   gold: { tile: 'border-gold/30 bg-gold/[.08]', value: 'text-gold-bright' },
   amber: { tile: 'border-amber-400/25 bg-amber-400/[.07]', value: 'text-amber-300' },
   red: { tile: 'border-red-400/25 bg-red-400/[.07]', value: 'text-red-300' },
@@ -338,9 +339,9 @@ function StatCard({ label, value, detail, icon, tone = 'gold', className = '' })
   const t = STAT_TONES[tone] || STAT_TONES.gold
 
   return (
-    <div className={`flex items-center gap-3.5 rounded-xl border border-white/[.08] bg-black/25 p-4 ${className}`}>
+    <div className={`ma-card flex items-center gap-3.5 rounded-2xl p-4 ${className}`}>
       <div
-        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-xl ${t.tile}`}
+        className={`hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-xl sm:flex ${t.tile}`}
         aria-hidden="true"
       >
         {icon}
@@ -365,7 +366,7 @@ function DayHeader({ group, todayKey, yesterdayKey }) {
   const count = group.items.length
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 border-y border-white/[.06] bg-white/[.03] px-4 py-2.5 first:border-t-0 sm:px-5">
+    <div className="ma-dayhead flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 px-4 py-2.5 sm:px-5">
       <span className="text-[13px] font-bold text-text-bright">
         {dayLabel(group.time, todayKey, yesterdayKey)}
       </span>
@@ -393,8 +394,14 @@ function ActivityRow({ item }) {
       .filter(text => !shown.some(s => s === text || s.includes(text)))
   )]
 
+  // Don't repeat the title in the subtitle ("World Boss · Glasir Forest" → "Glasir Forest").
+  const titleText = String(item.title || '').trim()
+  let subtitle = String(item.subtitle || '').trim()
+  if (subtitle.toLowerCase() === titleText.toLowerCase()) subtitle = ''
+  else if (subtitle.toLowerCase().startsWith(`${titleText.toLowerCase()} · `)) subtitle = subtitle.slice(titleText.length + 3)
+
   return (
-    <div className="flex gap-3 border-b border-white/[.05] px-4 py-4 last:border-b-0 sm:gap-4 sm:px-5">
+    <div className="ma-row flex gap-3 px-4 py-3.5 sm:gap-4 sm:px-5">
       <div
         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-base ${meta.tile}`}
         aria-hidden="true"
@@ -407,13 +414,13 @@ function ActivityRow({ item }) {
           {item.title}
         </div>
 
-        {item.subtitle ? (
+        {subtitle ? (
           <div className="mt-0.5 break-words text-[13px] leading-5 text-text">
-            {item.subtitle}
+            {subtitle}
           </div>
         ) : null}
 
-        <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[12px] text-text-dim">
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[12px] text-text-dim">
           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${meta.pill}`}>
             {meta.label}
           </span>
@@ -446,7 +453,7 @@ function AuctionWinCard({ item }) {
   const nameColor = RARITY_COLOR[rarity]
 
   return (
-    <div className="flex gap-3.5 rounded-xl border border-white/[.08] bg-black/25 p-3.5">
+    <div className="ma-card flex gap-3.5 rounded-2xl p-3.5">
       <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-white/[.1] bg-black/30">
         {image ? (
           <img
@@ -790,9 +797,10 @@ export default function MyActivity({ ctx }) {
   const activeTabLabel = TABS.find(t => t.id === activeTab)?.label
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-3 py-4 sm:px-5 sm:py-6">
+    <div className="ma-root mx-auto w-full max-w-5xl px-1 py-2 sm:px-3 sm:py-4">
+      <style>{MA_STYLES}</style>
       {/* Header */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="text-[11px] font-bold uppercase tracking-[.22em] text-gold-dim">
             Personal Ledger
@@ -805,7 +813,7 @@ export default function MyActivity({ ctx }) {
           </p>
         </div>
 
-        <div className="rounded-xl border border-gold/25 bg-gold/[.05] px-4 py-3 sm:min-w-[190px] sm:text-right">
+        <div className="ma-balance rounded-2xl px-5 py-3.5 sm:min-w-[200px] sm:text-right">
           <div className="text-[11px] font-bold uppercase tracking-[.16em] text-gold-dim">
             Current Balance
           </div>
@@ -817,13 +825,14 @@ export default function MyActivity({ ctx }) {
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3">
         <StatCard
           label="Coins Earned"
           value={`+${money(totalEarned)}`}
           detail="Attendance + Perfect Attendance"
           icon="🪙"
           tone="emerald"
+          className="col-span-2 sm:col-span-1"
         />
 
         <StatCard
@@ -831,7 +840,7 @@ export default function MyActivity({ ctx }) {
           value={attendanceEntries.length}
           detail={`${money(attendanceCoins)} coins earned`}
           icon="📋"
-          tone="emerald"
+          tone="sky"
         />
 
         <StatCard
@@ -856,7 +865,16 @@ export default function MyActivity({ ctx }) {
           detail={decayItems.length === 1 ? '1 decay event' : `${decayItems.length} decay events`}
           icon="📉"
           tone="red"
-          className="sm:col-span-2 lg:col-span-2"
+        />
+
+        {/* Net = everything earned minus everything spent (same totals as above) */}
+        <StatCard
+          label="Net Coins"
+          value={signedMoney(totalEarned - auctionSpent - decaySpent)}
+          detail="Earned minus spent"
+          icon="⚖️"
+          tone={totalEarned - auctionSpent - decaySpent < 0 ? 'red' : 'emerald'}
+          className="col-span-2 sm:col-span-1"
         />
       </div>
 
@@ -873,16 +891,10 @@ export default function MyActivity({ ctx }) {
                 role="tab"
                 aria-selected={selected}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex min-h-[40px] items-center gap-2 rounded-lg border px-3.5 text-[13px] font-semibold transition ${
-                  selected
-                    ? 'border-gold/40 bg-gold/[.10] text-gold-bright'
-                    : 'border-white/[.08] bg-black/20 text-text hover:border-white/[.16] hover:text-text-bright'
-                }`}
+                className={`ma-tab flex min-h-[40px] items-center gap-2 rounded-xl px-3.5 text-[13px] font-semibold ${selected ? 'is-on' : ''}`}
               >
                 <span>{tab.label}</span>
-                <span className={`rounded-full px-2 py-0.5 font-mono text-[11px] ${
-                  selected ? 'bg-gold/[.15] text-gold-bright' : 'bg-white/[.06] text-text-dim'
-                }`}>
+                <span className="ma-tab-count rounded-full px-2 py-0.5 font-mono text-[11px]">
                   {tabCounts[tab.id]}
                 </span>
               </button>
@@ -893,7 +905,7 @@ export default function MyActivity({ ctx }) {
 
       {/* Timeline */}
       {activeTab !== 'auctions' && (
-        <section className="mt-4 overflow-hidden rounded-xl border border-white/[.08] bg-black/20">
+        <section className="ma-card mt-4 overflow-hidden rounded-2xl">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[.06] px-4 py-3.5 sm:px-5">
             <div>
               <div className="text-[12px] font-bold uppercase tracking-[.16em] text-gold-dim">
@@ -993,7 +1005,7 @@ export default function MyActivity({ ctx }) {
               ))}
             </div>
           ) : (
-            <div className="rounded-xl border border-white/[.08] bg-black/20 px-4 py-14 text-center">
+            <div className="ma-card rounded-2xl px-4 py-14 text-center">
               <div className="text-3xl opacity-60">🔨</div>
               <div className="mt-2 text-[14px] font-semibold text-text-bright">
                 No auction wins yet
@@ -1007,7 +1019,7 @@ export default function MyActivity({ ctx }) {
       )}
 
       {/* Ledger note */}
-      <div className="mt-5 rounded-xl border border-white/[.06] bg-black/15 px-4 py-3 text-[12.5px] leading-5 text-text-dim">
+      <div className="ma-card mt-4 rounded-2xl px-4 py-3 text-[12.5px] leading-5 text-text-dim">
         <span className="font-semibold text-text">How to read this:</span>{' '}
         Attendance and Perfect Attendance are coins <span className="text-emerald-300">earned</span>.
         Auction wins and Coin Decay are coins <span className="text-red-300">spent</span>, shown
@@ -1016,3 +1028,41 @@ export default function MyActivity({ ctx }) {
     </div>
   )
 }
+
+const MA_STYLES = `
+  /* Readable text everywhere on this page (the site's default grey is darker) */
+  .ma-root .text-text-dim { color: #c4b8a3; }
+  .ma-root .text-text { color: #e6dcc8; }
+
+  /* Cards: same look as before, but solid enough to read over the background art */
+  .ma-root .ma-card {
+    background: linear-gradient(160deg, rgba(30,25,20,.9) 0%, rgba(13,11,9,.93) 100%);
+    border: 1px solid rgba(255,255,255,.08);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 16px 40px -28px rgba(0,0,0,.9);
+  }
+  .ma-root .ma-balance {
+    border: 1px solid rgba(212,175,55,.3);
+    background: linear-gradient(160deg, rgba(212,175,55,.14) 0%, rgba(20,16,10,.9) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 14px 34px -22px rgba(212,175,55,.45);
+  }
+
+  /* Tabs */
+  .ma-root .ma-tab {
+    color: #e6dcc8; border: 1px solid rgba(255,255,255,.09); background: rgba(14,11,9,.85);
+    transition: background .2s ease, color .2s ease, border-color .2s ease;
+  }
+  .ma-root .ma-tab:hover { border-color: rgba(255,255,255,.18); color: #fff; }
+  .ma-root .ma-tab-count { background: rgba(255,255,255,.08); color: #c4b8a3; }
+  .ma-root .ma-tab.is-on {
+    color: #1a1206; border-color: rgba(242,210,122,.6);
+    background: linear-gradient(180deg, #f2d27a 0%, #d4af37 55%, #b38d2a 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 8px 20px -10px rgba(212,175,55,.65);
+  }
+  .ma-root .ma-tab.is-on .ma-tab-count { background: rgba(26,18,6,.18); color: #1a1206; }
+
+  /* Timeline */
+  .ma-root .ma-dayhead { background: rgba(255,255,255,.04); border-top: 1px solid rgba(255,255,255,.06); border-bottom: 1px solid rgba(255,255,255,.06); }
+  .ma-root .ma-row { transition: background .15s ease; }
+  .ma-root .ma-row + .ma-row { border-top: 1px solid rgba(255,255,255,.05); }
+  .ma-root .ma-row:hover { background: rgba(255,255,255,.025); }
+`
