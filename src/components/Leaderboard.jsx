@@ -304,107 +304,22 @@ export default function Leaderboard({ ctx }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4 sm:space-y-5">
-      <style>{`
-        @keyframes lb-in {
-          from { opacity: 0; transform: translateY(4px); }
-          to { opacity: 1; transform: none; }
-        }
-        .lb-in { animation: lb-in .22s ease both; }
-        @media (prefers-reduced-motion: reduce) {
-          .lb-in { animation: none; }
-        }
-      `}</style>
+    <div className="lb-root mx-auto w-full max-w-5xl space-y-4">
+      <style>{LB_STYLES}</style>
 
-      {/* Header */}
-      <header className="overflow-hidden rounded-2xl border border-white/[.08] bg-[#0b0908]/90">
-        <div className="px-4 py-4 sm:px-5 sm:py-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="min-w-0">
-              <div className="text-[12px] font-bold uppercase tracking-[.2em] text-gold-dim">
-                Clan Rankings
-              </div>
-              <h1 className="mt-1 font-spectral text-[30px] font-bold leading-tight text-text-bright sm:text-[34px]">
-                Leaderboard
-              </h1>
-              <p className="mt-1 text-[14px] leading-5 text-text-dim sm:text-[14px]">
-                Compare the clan&apos;s Combat Power, Coins, and Event Attendance.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="rounded-lg border border-white/[.07] bg-black/20 px-3.5 py-2.5 text-right">
-                <div className="font-mono text-lg font-bold leading-none tabular-nums text-text-bright">
-                  {visibleMembers.length}
-                </div>
-                <div className="mt-1 text-[11px] font-bold uppercase tracking-[.15em] text-text-dim">
-                  Members
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-gold/20 bg-gold/[.045] px-3.5 py-2.5">
-                <div className="text-base leading-none">{activeCategory.icon}</div>
-                <div className="mt-1 text-[11px] font-bold uppercase tracking-[.15em] text-gold-light">
-                  {activeCategory.shortLabel}
-                </div>
-              </div>
-            </div>
+      {/* ── Header + category tabs ───────────────────────────────── */}
+      <header className="lb-glass rounded-[22px] px-4 py-4 sm:px-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <h1 className="font-spectral text-[28px] font-bold leading-tight text-text-bright sm:text-[32px]">Leaderboard</h1>
+            <p className="mt-0.5 text-[13px] text-text-dim">
+              {visibleMembers.length} members ranked by <span className="font-semibold text-gold-light">{activeCategory.label.toLowerCase()}</span>
+            </p>
           </div>
-        </div>
-      </header>
 
-      {/* Your standing */}
-      {me && (
-        <section className="rounded-xl border border-white/[.08] bg-[#0b0908]/70">
-          <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <div className="flex min-w-0 items-center gap-3">
-              <Emblem cls={me.cls} size={32} glow />
-              <div className="min-w-0">
-                <div className="text-[11px] font-bold uppercase tracking-[.18em] text-gold-dim">
-                  Your standing
-                </div>
-                <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-mono text-xl font-bold tabular-nums text-gold-bright">
-                    #{myRank}
-                  </span>
-                  <span className="text-[14px] text-text-dim">
-                    of {allRankedMembers.length}
-                  </span>
-                  <span className="text-[14px] text-text-dim">
-                    · {formatValue(valueOf(me))}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-3 sm:justify-end">
-              <div className="min-w-0 text-[13px] text-text-dim sm:text-right">
-                {above
-                  ? gap === 0
-                    ? `Tied with ${above.name}`
-                    : `${formatNumber(gap)}${activeCategory.suffix} behind ${above.name}`
-                  : 'You are #1'}
-              </div>
-
-              <button
-                type="button"
-                onClick={jumpToMe}
-                className="shrink-0 rounded-lg border border-gold/25 bg-gold/[.06] px-3 py-2 text-[12px] font-bold uppercase tracking-wider text-gold-light transition hover:bg-gold/[.12] hover:text-gold-bright"
-              >
-                Find me
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Filters */}
-      <section className="rounded-xl border border-white/[.08] bg-[#0b0908]/65 p-2.5">
-        <div className="flex flex-col gap-2.5 md:flex-row">
-          <div className="grid flex-1 grid-cols-3 rounded-lg border border-white/[.07] bg-black/20 p-1">
+          <div className="lb-seg grid grid-cols-3" role="tablist" aria-label="Ranking category">
             {Object.entries(CATEGORIES).map(([key, item]) => {
               const active = category === key
-
               return (
                 <button
                   key={key}
@@ -412,39 +327,85 @@ export default function Leaderboard({ ctx }) {
                   role="tab"
                   aria-selected={active}
                   onClick={() => changeCategory(key)}
-                  className={`min-h-[38px] rounded-md px-2 text-[13px] font-bold transition sm:text-[14px] ${
-                    active
-                      ? 'bg-gold/[.10] text-gold-bright'
-                      : 'text-text-dim hover:bg-white/[.035] hover:text-text-bright'
-                  }`}
+                  className="lb-seg-btn"
                 >
-                  <span className="mr-1.5">{item.icon}</span>
-                  {item.shortLabel}
+                  <span aria-hidden="true">{item.icon}</span>
+                  <span>{item.shortLabel}</span>
                 </button>
               )
             })}
           </div>
+        </div>
+      </header>
 
-          <div className="relative md:w-[300px] lg:w-[340px]">
+      {/* ── Your standing ────────────────────────────────────────── */}
+      {me && (
+        <section className="lb-solid lb-me relative overflow-hidden rounded-[20px] px-4 py-3.5 sm:px-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3.5">
+              <Emblem cls={me.cls} size={34} glow />
+              <div className="min-w-0">
+                <div className="text-[11px] font-bold uppercase tracking-[.16em] text-gold-dim">Your standing</div>
+                <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
+                  <span className="font-spectral text-[30px] font-bold leading-none text-gold-bright">#{myRank}</span>
+                  <span className="text-[14px] text-text-dim">of {allRankedMembers.length}</span>
+                  <span className="rounded-full border border-gold/20 bg-gold/[.06] px-2 py-0.5 text-[11px] font-bold text-gold-light">Top {topPercent}%</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:max-w-[360px]">
+              <div className="flex items-center justify-between gap-3 text-[13px]">
+                <span className="font-mono font-bold tabular-nums text-text-bright">{formatValue(valueOf(me))}</span>
+                <span className="min-w-0 truncate text-right text-text-dim">
+                  {above
+                    ? gap === 0
+                      ? `Tied with ${above.name}`
+                      : <>{formatNumber(gap)}{activeCategory.suffix} behind <span className="font-semibold text-text-bright">{above.name}</span></>
+                    : <span className="font-semibold text-gold-light">You are #1 👑</span>}
+                </span>
+              </div>
+              {above && gap > 0 && (
+                <div className="lb-bar" aria-hidden="true">
+                  <span style={{ width: `${Math.max(4, Math.min(100, Math.round((valueOf(me) / Math.max(1, valueOf(above))) * 100)))}%` }} />
+                </div>
+              )}
+            </div>
+
+            <button type="button" onClick={jumpToMe} disabled={!canJumpToMe} className="lb-btn lb-btn-gold shrink-0">
+              Find me ↓
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* ── Ranking board ────────────────────────────────────────── */}
+      <section className="lb-solid overflow-hidden rounded-[22px]">
+        <div className="flex flex-col gap-3 border-b border-white/[.07] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-gold/20 bg-gold/[.07] text-[17px]" aria-hidden="true">{activeCategory.icon}</span>
+            <div>
+              <h2 className="text-[16px] font-bold leading-tight text-text-bright">{activeCategory.label}</h2>
+              <div className="text-[12px] text-text-dim">
+                {activeCategory.tagline} · {query ? `${rankedMembers.length} found` : 'highest first'}
+              </div>
+            </div>
+          </div>
+
+          <div className="relative sm:w-[300px]">
+            <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-text-dim">⌕</span>
             <input
               value={search}
               onChange={e => changeSearch(e.target.value)}
               placeholder="Search name, class, or role…"
-              className="input h-10 w-full pl-9 pr-9 text-[14px]"
+              className="lb-field h-10 w-full pl-9 pr-9 text-[14px]"
               aria-label="Search members"
             />
-            <span
-              aria-hidden="true"
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text-dim"
-            >
-              ⌕
-            </span>
-
             {search && (
               <button
                 type="button"
                 onClick={() => changeSearch('')}
-                className="absolute right-1.5 top-1/2 h-7 w-7 -translate-y-1/2 rounded-md text-base leading-none text-text-dim hover:bg-white/[.05] hover:text-text"
+                className="absolute right-1.5 top-1/2 h-7 w-7 -translate-y-1/2 rounded-lg text-[16px] leading-none text-text-dim hover:bg-white/[.06] hover:text-text-bright"
                 aria-label="Clear search"
               >
                 ×
@@ -452,48 +413,24 @@ export default function Leaderboard({ ctx }) {
             )}
           </div>
         </div>
-      </section>
-
-      {/* Ranking */}
-      <section className="overflow-hidden rounded-2xl border border-white/[.08] bg-[#0b0908]/80">
-        <div className="flex items-center justify-between gap-3 border-b border-white/[.07] px-4 py-3.5 sm:px-5">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-base">{activeCategory.icon}</span>
-              <h2 className="truncate text-[15px] font-bold text-text-bright sm:text-[16px]">
-                {activeCategory.label}
-              </h2>
-            </div>
-            <div className="mt-0.5 text-[12px] text-text-dim">
-              Highest first
-            </div>
-          </div>
-
-          <div className="shrink-0 rounded-full bg-white/[.04] px-2.5 py-1 text-[12px] font-mono text-text-dim">
-            {query ? `${rankedMembers.length} found` : `${visibleMembers.length} members`}
-          </div>
-        </div>
 
         {pageMembers.length === 0 ? (
           <div className="px-4 py-16 text-center">
-            <div className="text-2xl opacity-60">{query ? '⌕' : '—'}</div>
-            <div className="mt-2 text-[15px] font-semibold text-text-bright">
-              {query ? 'No members found' : 'No ranking data'}
-            </div>
-            <div className="mt-1 text-[14px] text-text-dim">
-              {query ? 'Try another name, class, or role.' : 'There are no members to rank yet.'}
-            </div>
+            <div className="text-[28px] opacity-60" aria-hidden="true">{query ? '⌕' : '🏆'}</div>
+            <div className="mt-2 text-[15px] font-semibold text-text-bright">{query ? 'No members found' : 'No ranking data'}</div>
+            <div className="mt-1 text-[13px] text-text-dim">{query ? 'Try another name, class, or role.' : 'There are no members to rank yet.'}</div>
+            {query && <button type="button" onClick={() => changeSearch('')} className="lb-btn mt-4">Clear search</button>}
           </div>
         ) : (
           <>
-            <div className="hidden grid-cols-[56px_minmax(0,1fr)_120px_minmax(140px,1fr)] gap-3 border-b border-white/[.06] bg-black/15 px-5 py-2.5 text-[11px] font-bold uppercase tracking-[.16em] text-text-dim sm:grid">
+            <div className="hidden grid-cols-[64px_minmax(0,1fr)_130px_minmax(150px,1fr)] gap-3 border-b border-white/[.06] bg-black/20 px-5 py-2 text-[11px] font-bold uppercase tracking-[.14em] text-text-dim sm:grid">
               <div>Rank</div>
               <div>Member</div>
               <div>Class</div>
               <div className="text-right">{activeCategory.shortLabel}</div>
             </div>
 
-            <div>
+            <div className="divide-y divide-white/[.05]">
               {pageMembers.map((member, index) => {
                 const rank = getRank(member)
                 const mine = isMeMember(member)
@@ -501,80 +438,55 @@ export default function Leaderboard({ ctx }) {
                 const pct = topValue > 0
                   ? Math.max(3, Math.min(100, Math.round((value / topValue) * 100)))
                   : 0
+                const podium = PODIUM[rank]
 
                 return (
                   <div
                     key={`${category}-${member.id}`}
                     data-leaderboard-member-id={String(member.id)}
-                    className={`lb-in relative border-b border-white/[.05] px-3.5 py-3 last:border-b-0 sm:px-5 ${
-                      mine ? 'bg-gold/[.045]' : 'hover:bg-white/[.02]'
-                    }`}
-                    style={{ animationDelay: `${Math.min(index, 10) * 18}ms` }}
+                    className={`lb-in lb-row relative px-3.5 py-3 sm:px-5 ${mine ? 'lb-row-me' : ''}`}
+                    style={{
+                      animationDelay: `${Math.min(index, 10) * 18}ms`,
+                      ...(podium ? { '--lb-podium': podium.rgb } : {}),
+                    }}
+                    data-podium={podium ? rank : undefined}
                   >
-                    {mine && (
-                      <span
-                        aria-hidden="true"
-                        className="absolute inset-y-0 left-0 w-0.5 bg-gold-bright"
-                      />
-                    )}
-
-                    <div className="grid grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[56px_minmax(0,1fr)_120px_minmax(140px,1fr)]">
+                    <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[64px_minmax(0,1fr)_130px_minmax(150px,1fr)]">
                       <div>
-                        <RankValue rank={rank} top={rank <= 3} />
+                        {podium ? <RankBadge rank={rank} /> : <RankPill rank={rank} />}
                       </div>
 
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <Emblem
-                          cls={member.cls}
-                          size={30}
-                          className={mine ? 'ring-1 ring-gold/35' : ''}
-                        />
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Emblem cls={member.cls} size={28} glow={!!podium} className={mine ? 'ring-1 ring-gold/40' : ''} />
                         <div className="min-w-0">
                           <div className="flex min-w-0 items-center gap-1.5">
-                            <span className="truncate text-[14px] font-semibold text-text-bright">
-                              {member.name}
-                            </span>
-                            {mine && (
-                              <span className="shrink-0 rounded border border-gold/25 bg-gold/[.07] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gold-light">
-                                You
-                              </span>
-                            )}
+                            <span className={`truncate text-[14px] font-semibold ${podium ? podium.text : 'text-text-bright'}`}>{member.name}</span>
+                            {rank === 1 && <Crown size={14} className="shrink-0 text-gold-bright" />}
+                            {mine && <span className="shrink-0 rounded-full bg-gold/[.15] px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-gold-light">You</span>}
                           </div>
-
-                          <div className="truncate text-[12px] text-text-dim sm:hidden">
-                            {member.cls || 'Berserker'} · {member.role || 'Member'}
-                          </div>
-                          <div className="hidden truncate text-[12px] text-text-dim sm:block">
-                            {member.role || 'Member'}
-                          </div>
+                          <div className="truncate text-[12px] text-text-dim sm:hidden">{member.cls || 'Berserker'} · {member.role || 'Member'}</div>
+                          <div className="hidden truncate text-[12px] text-text-dim sm:block">{podium ? podium.title : (member.role || 'Member')}</div>
                         </div>
                       </div>
 
-                      <div className="hidden truncate text-[13px] text-text sm:block">
-                        {member.cls || '—'}
+                      <div className="hidden sm:block">
+                        <span className={`inline-flex max-w-full items-center truncate rounded-full border px-2.5 py-1 text-[12px] font-semibold text-text ${classIconTone(member.cls)}`}>
+                          {member.cls || 'Berserker'}
+                        </span>
                       </div>
 
-                      <div className="min-w-[74px] text-right">
-                        <div className={`font-mono text-[15px] font-bold tabular-nums ${
-                          rank <= 3 ? 'text-gold-light' : 'text-text-bright'
-                        }`}>
+                      <div className="min-w-[78px] text-right">
+                        <div className={`font-mono text-[15px] font-bold tabular-nums ${rank <= 3 ? 'text-gold-light' : 'text-text-bright'}`}>
                           {formatValue(value)}
                         </div>
-
-                        <div className="mt-1.5 hidden h-1 overflow-hidden rounded-full bg-white/[.05] sm:block">
-                          <div
-                            className="h-full rounded-full bg-gold/55"
-                            style={{ width: `${pct}%` }}
-                          />
+                        <div className="lb-meter mt-1.5 hidden sm:block" aria-hidden="true">
+                          <span style={{ width: `${pct}%` }} />
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[.05] sm:hidden">
-                      <div
-                        className="h-full rounded-full bg-gold/55"
-                        style={{ width: `${pct}%` }}
-                      />
+                    <div className="lb-meter mt-2 sm:hidden" aria-hidden="true">
+                      <span style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 )
@@ -582,33 +494,14 @@ export default function Leaderboard({ ctx }) {
             </div>
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-between gap-3 border-t border-white/[.06] px-4 py-3 sm:px-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[.06] px-4 py-3 sm:px-5">
                 <div className="text-[12px] text-text-dim sm:text-[13px]">
-                  {startIndex + 1}–{Math.min(startIndex + PAGE_SIZE, listMembers.length)} of {listMembers.length}
+                  Showing <span className="font-semibold text-text-bright">{startIndex + 1}–{Math.min(startIndex + PAGE_SIZE, listMembers.length)}</span> of {listMembers.length}
                 </div>
-
                 <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    disabled={safePage === 1}
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    className="min-h-[34px] rounded-lg border border-white/[.08] px-3 text-[12px] font-semibold text-text-dim transition hover:bg-white/[.04] hover:text-text disabled:pointer-events-none disabled:opacity-30"
-                  >
-                    Prev
-                  </button>
-
-                  <span className="min-w-[60px] text-center font-mono text-[12px] text-text-dim">
-                    {safePage} / {totalPages}
-                  </span>
-
-                  <button
-                    type="button"
-                    disabled={safePage === totalPages}
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    className="min-h-[34px] rounded-lg border border-white/[.08] px-3 text-[12px] font-semibold text-text-dim transition hover:bg-white/[.04] hover:text-text disabled:pointer-events-none disabled:opacity-30"
-                  >
-                    Next
-                  </button>
+                  <button type="button" disabled={safePage === 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="lb-btn">‹ Prev</button>
+                  <span className="min-w-[64px] text-center font-mono text-[12px] text-text-dim">{safePage} / {totalPages}</span>
+                  <button type="button" disabled={safePage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="lb-btn">Next ›</button>
                 </div>
               </div>
             )}
@@ -618,3 +511,107 @@ export default function Leaderboard({ ctx }) {
     </div>
   )
 }
+
+/* ───────────────────────── UI-only helpers ───────────────────────── */
+
+function RankPill({ rank }) {
+  return (
+    <span className="flex h-9 min-w-[2.25rem] items-center justify-center rounded-xl border border-white/[.08] bg-black/25 px-1.5 font-mono text-[13px] font-bold tabular-nums text-text-dim">
+      {rank}
+    </span>
+  )
+}
+
+// Glass look shared with the other portal pages. Only the header uses live
+// blur; the big lists are solid so scrolling stays smooth on phones.
+const LB_STYLES = `
+  @keyframes lb-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .lb-in { animation: lb-in .22s ease both; }
+  @media (prefers-reduced-motion: reduce) { .lb-in { animation: none; } }
+
+  .lb-root .lb-glass {
+    position: relative;
+    background:
+      radial-gradient(120% 70% at 0% 0%, rgba(255,255,255,.07) 0%, transparent 50%),
+      linear-gradient(160deg, rgba(34,28,22,.58) 0%, rgba(12,10,8,.66) 100%);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid rgba(255,255,255,.08);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 22px 60px -30px rgba(0,0,0,.85);
+  }
+  @media (max-width: 767px) {
+    .lb-root .lb-glass { backdrop-filter: blur(10px) saturate(140%); -webkit-backdrop-filter: blur(10px) saturate(140%); }
+  }
+  .lb-root .lb-solid {
+    background:
+      radial-gradient(120% 70% at 0% 0%, rgba(255,255,255,.05) 0%, transparent 50%),
+      linear-gradient(160deg, rgba(28,23,18,.94) 0%, rgba(12,10,8,.96) 100%);
+    border: 1px solid rgba(255,255,255,.08);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 20px 50px -30px rgba(0,0,0,.9);
+  }
+  .lb-root .lb-me {
+    border-color: rgba(212,175,55,.28);
+    background:
+      radial-gradient(90% 120% at 0% 0%, rgba(212,175,55,.12) 0%, transparent 55%),
+      linear-gradient(160deg, rgba(30,24,16,.95) 0%, rgba(12,10,8,.96) 100%);
+  }
+
+  /* Category tabs */
+  .lb-root .lb-seg { gap: 4px; padding: 4px; border-radius: 14px; background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.07); min-width: 280px; }
+  .lb-root .lb-seg-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 38px; padding: 0 12px; border-radius: 10px;
+    font-size: 13px; font-weight: 700; color: #a79c8a;
+    transition: background .2s ease, color .2s ease, box-shadow .2s ease;
+  }
+  .lb-root .lb-seg-btn:hover { color: #f4ebd9; background: rgba(255,255,255,.03); }
+  .lb-root .lb-seg-btn[aria-selected="true"] {
+    color: #1a1206;
+    background: linear-gradient(180deg, #f2d27a 0%, #d4af37 55%, #b38d2a 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 6px 18px -8px rgba(212,175,55,.6);
+  }
+
+  /* Buttons & search */
+  .lb-root .lb-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 36px; padding: 0 14px; border-radius: 11px;
+    border: 1px solid rgba(255,255,255,.09); background: rgba(255,255,255,.03);
+    font-size: 12px; font-weight: 700; color: #a79c8a;
+    transition: border-color .2s ease, color .2s ease, background .2s ease;
+  }
+  .lb-root .lb-btn:hover:not(:disabled) { border-color: rgba(212,175,55,.3); color: #f4ebd9; }
+  .lb-root .lb-btn:disabled { opacity: .35; cursor: not-allowed; }
+  .lb-root .lb-btn-gold { border-color: rgba(212,175,55,.3); background: rgba(212,175,55,.08); color: #e7c873; }
+  .lb-root .lb-btn-gold:hover:not(:disabled) { background: rgba(212,175,55,.14); color: #f2cc60; }
+  .lb-root .lb-field {
+    border-radius: 12px; border: 1px solid rgba(255,255,255,.09); background: rgba(0,0,0,.3);
+    color: #f4ebd9; outline: none; transition: border-color .2s ease, box-shadow .2s ease;
+  }
+  .lb-root .lb-field::placeholder { color: rgba(167,156,138,.6); }
+  .lb-root .lb-field:focus { border-color: rgba(212,175,55,.45); box-shadow: 0 0 0 3px rgba(212,175,55,.1); }
+
+  /* Rows */
+  .lb-root .lb-row { transition: background .15s ease; }
+  .lb-root .lb-row:hover { background: rgba(255,255,255,.025); }
+  .lb-root .lb-row[data-podium] {
+    background: linear-gradient(90deg, rgba(var(--lb-podium), .09) 0%, transparent 60%);
+  }
+  .lb-root .lb-row[data-podium]::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: rgb(var(--lb-podium)); opacity: .75;
+  }
+  .lb-root .lb-row-me { background: rgba(212,175,55,.07) !important; box-shadow: inset 0 0 0 1px rgba(212,175,55,.25); }
+  .lb-root .lb-row-me::after {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #f2cc60;
+  }
+
+  /* Value meters */
+  .lb-root .lb-meter { height: 5px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.06); }
+  .lb-root .lb-meter > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, rgba(179,141,42,.8), rgba(242,210,122,.95)); }
+  .lb-root .lb-bar { height: 6px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.07); }
+  .lb-root .lb-bar > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #b38d2a, #f2d27a); }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .lb-root .lb-glass { background: rgba(16,13,11,.96); }
+  }
+`
