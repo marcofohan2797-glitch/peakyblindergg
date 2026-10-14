@@ -45,11 +45,14 @@ const IMAGE_BUCKET = 'auction-images'
 const ENDED_PAGE_SIZE = 50
 
 // Compress newly selected PNG/JPG/WebP images in the browser before upload.
-// Keep the output below Supabase Storage's existing 2 MB object limit.
+// Pictures are shown at most ~232px wide (~460px on sharp phone screens), so
+// 640px is plenty. Smaller files = less Supabase egress for every member.
 const MAX_STORAGE_IMAGE_BYTES = 2 * 1024 * 1024
 const MAX_SOURCE_IMAGE_BYTES = 20 * 1024 * 1024
-const TARGET_WEBP_BYTES = Math.floor(1.8 * 1024 * 1024)
-const MAX_WEBP_DIMENSION = 1600
+const TARGET_WEBP_BYTES = 300 * 1024
+const MAX_WEBP_DIMENSION = 640
+// Every upload gets a unique file name, so browsers can keep it for a year.
+const IMAGE_CACHE_SECONDS = '31536000'
 
 function decodeImageFile(file) {
   return new Promise((resolve, reject) => {
@@ -100,9 +103,6 @@ async function compressAuctionImageToWebP(file) {
     return file
   }
 
-  // A small WebP is already optimized enough; no need to recompress it.
-  if (file.type === 'image/webp' && file.size <= TARGET_WEBP_BYTES) return file
-
   const image = await decodeImageFile(file)
   const originalWidth = image.naturalWidth || image.width
   const originalHeight = image.naturalHeight || image.height
@@ -110,11 +110,20 @@ async function compressAuctionImageToWebP(file) {
     throw new Error('This image has invalid dimensions. Please choose another image.')
   }
 
+  // A WebP that is already small in both file size and dimensions is kept as is.
+  if (
+    file.type === 'image/webp' &&
+    file.size <= TARGET_WEBP_BYTES &&
+    Math.max(originalWidth, originalHeight) <= MAX_WEBP_DIMENSION
+  ) return file
+
   const initialScale = Math.min(1, MAX_WEBP_DIMENSION / Math.max(originalWidth, originalHeight))
   const baseWidth = Math.max(1, Math.round(originalWidth * initialScale))
   const baseHeight = Math.max(1, Math.round(originalHeight * initialScale))
   const dimensionScales = [1, 0.85, 0.7, 0.55, 0.4]
   const qualityLevels = [0.86, 0.78, 0.70, 0.62]
+  const baseName = file.name.replace(/\.[^.]+$/, '') || 'auction-image'
+  let smallest = null
 
   for (const dimensionScale of dimensionScales) {
     const width = Math.max(1, Math.round(baseWidth * dimensionScale))
@@ -130,14 +139,20 @@ async function compressAuctionImageToWebP(file) {
 
     for (const quality of qualityLevels) {
       const blob = await canvasToWebPBlob(canvas, quality)
-      if (blob.size <= TARGET_WEBP_BYTES && blob.size <= MAX_STORAGE_IMAGE_BYTES) {
-        const baseName = file.name.replace(/\.[^.]+$/, '') || 'auction-image'
+      if (!smallest || blob.size < smallest.size) smallest = blob
+      if (blob.size <= TARGET_WEBP_BYTES) {
         return new File([blob], `${baseName}.webp`, {
           type: 'image/webp',
           lastModified: Date.now(),
         })
       }
     }
+  }
+
+  // Very detailed art may not reach the target; the smallest version is still fine
+  // as long as it fits the 2 MB storage limit.
+  if (smallest && smallest.size <= MAX_STORAGE_IMAGE_BYTES) {
+    return new File([smallest], `${baseName}.webp`, { type: 'image/webp', lastModified: Date.now() })
   }
 
   throw new Error('This image is still too large after compression. Please choose a smaller image.')
@@ -1151,7 +1166,7 @@ export default function Auctions({ ctx }) {
     const { error } = await supabase.storage
       .from(IMAGE_BUCKET)
       .upload(path, uploadFile, {
-        cacheControl: '3600',
+        cacheControl: IMAGE_CACHE_SECONDS,
         upsert: false,
         contentType: uploadFile.type,
       })
