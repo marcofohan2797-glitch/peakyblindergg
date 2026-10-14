@@ -1,44 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import {
+  useClanSchedule, saveClanSchedule, canEditSchedule, buildSchedule,
+  normalizeSchedule, DEFAULT_SCHEDULE, SCHEDULE_TYPES,
+} from './clanSchedule'
 
 /* ─────────────────────────────────────────────────────────────────────
    PeakyBlinder · Event Calendar
    Server time (GMT+8) is authoritative; every player also sees their
    own local time automatically.
    ───────────────────────────────────────────────────────────────────── */
-
-const WEEKLY_SCHEDULE = {
-  1: [
-    { time: '21:00', type: 'boss', name: 'Canyon of Nidavellir 1F', boss: 'Nargrim' },
-    { time: '21:10', type: 'boss', name: 'Folkvang 5F · Inter-Server', boss: 'Twilight Disaster Nirva' },
-  ],
-  2: [
-    { time: '20:00', type: 'battle', name: 'Server Battle', subtitle: 'Lv 40+ · Top 500 Growth Power' },
-  ],
-  3: [
-    { time: '21:00', type: 'boss', name: 'Canyon of the World Tree', boss: 'Twilight Overlord Rogvalt' },
-    { time: '21:10', type: 'boss', name: 'Crossroads of Ragnarok', boss: 'Faded Oath Vargreif' },
-  ],
-  4: [
-    { time: '13:00', type: 'battle', name: 'Clan Annihilation', subtitle: '13:00 – 14:00' },
-    { time: '19:00', type: 'boss', name: 'Myrkrheim', boss: 'Wrath of the Earth Bergbernd' },
-    { time: '20:00', type: 'battle', name: 'Clan Annihilation', subtitle: '20:00 – 21:00' },
-  ],
-  5: [
-    { time: '21:00', type: 'boss', name: 'Folkvang 5F · Inter-Server', boss: 'Twilight Disaster Nirva' },
-    { time: '21:10', type: 'boss', name: 'Crossroads of Ragnarok', boss: 'Faded Oath Vargreif' },
-  ],
-  6: [
-    { time: '13:00', type: 'treasure', name: "Sindri's Treasure Island", subtitle: '13:00 – 14:00' },
-    { time: '19:00', type: 'boss', name: 'Glasir Forest', boss: 'Divine Beast of Void Ulnos' },
-    { time: '20:00', type: 'treasure', name: "Sindri's Treasure Island", subtitle: '20:00 – 21:00' },
-    { time: '21:00', type: 'battle', name: 'Clan Sanctuary', subtitle: '21:00 – 22:00' },
-  ],
-  0: [
-    { time: '20:00', type: 'arena', name: 'Clan Arena Tournament', subtitle: 'See Announcement' },
-    { time: '21:00', type: 'boss', name: 'Canyon of the World Tree', boss: 'Twilight Overlord Rogvalt' },
-    { time: '21:10', type: 'boss', name: 'Canyon of Nidavellir 1F', boss: 'Nargrim' },
-  ],
-}
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -53,7 +23,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 const WEEK_MS = 7 * DAY_MS
 const SOON_MS = 60 * 60 * 1000
 // Events without an explicit "HH:MM – HH:MM" window count as in progress for this long.
-const DEFAULT_RUN_MIN = { boss: 15, battle: 60, treasure: 60, arena: 60 }
+const DEFAULT_RUN_MIN = { boss: 15, battle: 60, treasure: 60, sanctuary: 60, arena: 60 }
 
 const AUTO_LOCAL_TZ = (() => {
   try {
@@ -67,8 +37,10 @@ const TYPE = {
   boss:     { color: '#f87171', icon: '👾', label: 'World Boss' },
   battle:   { color: '#60a5fa', icon: '⚔️', label: 'Server Battle' },
   treasure: { color: '#facc15', icon: '🏝️', label: 'Sindri Island' },
+  sanctuary:{ color: '#4ade80', icon: '🛡️', label: 'Clan Sanctuary' },
   arena:    { color: '#c084fc', icon: '🏟️', label: 'Arena' },
 }
+const typeOf = key => TYPE[key] || TYPE.battle
 const TYPE_KEYS = Object.keys(TYPE)
 
 function TypeIcon({ type, size = 18 }) {
@@ -102,6 +74,13 @@ function TypeIcon({ type, size = 18 }) {
           <rect x="4" y="10" width="16" height="9" rx="1.5" />
           <path d="M4 13h16" />
           <rect x="10.5" y="11.5" width="3" height="3.5" rx=".6" />
+        </svg>
+      )
+    case 'sanctuary': // shield
+      return (
+        <svg {...common}>
+          <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
+          <path d="M9 12l2 2 4-4" />
         </svg>
       )
     case 'arena': // trophy
@@ -258,20 +237,6 @@ function writePref(value) {
   try { localStorage.setItem(PREF_KEY, value) } catch { /* storage unavailable */ }
 }
 
-/* ── Static schedule ───────────────────────────────────────────────── */
-
-const SCHEDULE_BY_DAY = (() => {
-  const out = {}
-  for (const dow of DAY_ORDER) {
-    out[dow] = [...(WEEKLY_SCHEDULE[dow] || [])]
-      .sort((a, b) => a.time.localeCompare(b.time))
-      .map((event, i) => ({ ...event, dow, key: `${dow}-${event.time}-${i}` }))
-  }
-  return out
-})()
-
-const ALL_EVENTS = DAY_ORDER.flatMap(dow => SCHEDULE_BY_DAY[dow])
-
 /* ── Styles (scoped to .ec-root) ───────────────────────────────────── */
 
 const EC_STYLES = `
@@ -388,6 +353,37 @@ const EC_STYLES = `
   .ec-root .ec-live-dot { animation: ec-pulse 1.6s ease-in-out infinite; }
   @keyframes ec-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
+
+  /* Schedule editor */
+  .ec-root .ec-chip.ec-chip-gold { background: linear-gradient(180deg, rgba(201,162,75,.2) 0%, rgba(201,162,75,.06) 100%); border-color: rgba(235,208,141,.32); }
+  .ec-scrim { background: rgba(0,0,0,.72); }
+  @media (min-width: 768px) { .ec-scrim { background: rgba(0,0,0,.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); } }
+  .ec-root .ec-modal {
+    background: linear-gradient(170deg, #1a1511 0%, #0c0a08 100%);
+    border: 1px solid rgba(212,175,55,.22);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 30px 90px rgba(0,0,0,.85);
+    animation: ec-sheet .22s cubic-bezier(.2,.8,.2,1) both;
+  }
+  @keyframes ec-sheet { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  .ec-root .ec-input {
+    height: 36px; min-width: 0; width: 100%; border-radius: 10px; padding: 0 10px;
+    border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.32); color: #f4ebd9;
+    font-size: 13px; outline: none; transition: border-color .15s ease, box-shadow .15s ease;
+    color-scheme: dark;
+  }
+  .ec-root select.ec-input { padding: 0 6px; cursor: pointer; }
+  .ec-root .ec-input option { background: #14100c; color: #f4ebd9; }
+  .ec-root .ec-input::placeholder { color: rgba(201,189,168,.5); }
+  .ec-root .ec-input:focus { border-color: rgba(212,175,55,.5); box-shadow: 0 0 0 3px rgba(212,175,55,.12); }
+  .ec-root .ec-del { border: 1px solid rgba(248,113,113,.25); background: rgba(248,113,113,.06); color: #fca5a5; transition: background .15s ease; }
+  .ec-root .ec-del:hover { background: rgba(248,113,113,.14); color: #fecaca; }
+  .ec-root .ec-save {
+    color: #1a1206; border: 1px solid rgba(242,210,122,.6);
+    background: linear-gradient(180deg, #f2d27a 0%, #d4af37 55%, #b38d2a 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 8px 20px -10px rgba(212,175,55,.7);
+  }
+  .ec-root .ec-save:disabled { opacity: .45; cursor: not-allowed; }
+  .ec-root button.ec-chip:disabled { opacity: .45; }
   .ec-root button:focus-visible { outline: 2px solid rgba(235,208,141,.75); outline-offset: 2px; }
 
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -404,7 +400,14 @@ const EC_STYLES = `
 
 /* ── Page ──────────────────────────────────────────────────────────── */
 
-function EventCalendar({ setPage }) {
+function EventCalendar({ ctx, setPage }) {
+  const supabase = ctx?.supabase
+  const currentUser = ctx?.currentUser
+  const canEdit = canEditSchedule(currentUser)
+  const schedule = useClanSchedule(supabase)
+  const { byDay: SCHEDULE_BY_DAY, all: ALL_EVENTS } = useMemo(() => buildSchedule(schedule), [schedule])
+  const [editing, setEditing] = useState(false)
+
   const now = useNow(1000)
   const today = serverDay(now)
   const todayDow = today.dow
@@ -438,7 +441,7 @@ function EventCalendar({ setPage }) {
     const map = new Map()
     for (const event of ALL_EVENTS) map.set(event.key, eventState(event, event.dow, now))
     return map
-  }, [now])
+  }, [now, ALL_EVENTS])
 
   const upcoming = useMemo(() => (
     ALL_EVENTS
@@ -449,14 +452,14 @@ function EventCalendar({ setPage }) {
         const rb = b.state.status === 'live' || b.state.status === 'started' ? b.state.startTs : b.state.nextTs
         return ra - rb
       })
-  ), [states, matchesType])
+  ), [states, matchesType, ALL_EVENTS])
 
   const hero = upcoming[0] || null
   const afterHero = upcoming.slice(1, 6)
 
   const dayEvents = useMemo(
     () => (SCHEDULE_BY_DAY[selectedDay] || []).filter(matchesType),
-    [selectedDay, matchesType]
+    [selectedDay, matchesType, SCHEDULE_BY_DAY]
   )
   const hiddenByFilter = (SCHEDULE_BY_DAY[selectedDay] || []).length - dayEvents.length
 
@@ -464,7 +467,7 @@ function EventCalendar({ setPage }) {
     const counts = { all: ALL_EVENTS.length }
     for (const key of TYPE_KEYS) counts[key] = ALL_EVENTS.filter(e => e.type === key).length
     return counts
-  }, [])
+  }, [ALL_EVENTS])
 
   // Jump from "Up next" to the event in the day view and highlight it.
   const focusEvent = useCallback(event => {
@@ -522,6 +525,16 @@ function EventCalendar({ setPage }) {
                 </>
               )}
             </div>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="ec-chip ec-chip-gold inline-flex items-center gap-1.5 self-center rounded-full px-4 py-2 text-[12px] font-bold text-gold-light"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>
+                Edit Schedule
+              </button>
+            )}
             {setPage && (
               <button
                 type="button"
@@ -598,6 +611,7 @@ function EventCalendar({ setPage }) {
             activeDay={selectedDay}
             onSelect={selectDay}
             matchesType={matchesType}
+            scheduleByDay={SCHEDULE_BY_DAY}
           />
 
           <div id="ec-day-panel" role="tabpanel" aria-labelledby={`ec-tab-${selectedDay}`} className="p-3 sm:p-4">
@@ -673,6 +687,18 @@ function EventCalendar({ setPage }) {
           </p>
         </aside>
       </div>
+
+      {editing && (
+        <ScheduleEditor
+          schedule={schedule}
+          onClose={() => setEditing(false)}
+          onSave={async next => {
+            await saveClanSchedule(supabase, currentUser, next)
+            ctx?.addToast?.('Everyone now sees the new times.', 'gold', 'Schedule Saved')
+            setEditing(false)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -681,7 +707,7 @@ function EventCalendar({ setPage }) {
 
 const NextEventHero = React.memo(function NextEventHero({ item, now, showLocalFirst, onShow }) {
   const { event, state } = item
-  const type = TYPE[event.type]
+  const type = typeOf(event.type)
   const inProgress = state.status === 'live' || state.status === 'started'
   const target = inProgress ? state.endTs : state.nextTs
   const local = formatLocal(inProgress ? state.startTs : state.nextTs)
@@ -761,7 +787,7 @@ const NextEventHero = React.memo(function NextEventHero({ item, now, showLocalFi
 
 /* ── Day tabs ──────────────────────────────────────────────────────── */
 
-const DayTabs = React.memo(function DayTabs({ todayDow, activeDay, onSelect, matchesType }) {
+const DayTabs = React.memo(function DayTabs({ todayDow, activeDay, onSelect, matchesType, scheduleByDay }) {
   const tabRefs = useRef({})
 
   const moveTo = useCallback(dow => {
@@ -786,7 +812,7 @@ const DayTabs = React.memo(function DayTabs({ todayDow, activeDay, onSelect, mat
       {DAY_ORDER.map(dow => {
         const active = dow === activeDay
         const isToday = dow === todayDow
-        const events = (SCHEDULE_BY_DAY[dow] || []).filter(matchesType)
+        const events = (scheduleByDay[dow] || []).filter(matchesType)
         return (
           <button
             key={dow}
@@ -810,7 +836,7 @@ const DayTabs = React.memo(function DayTabs({ todayDow, activeDay, onSelect, mat
               {events.length === 0
                 ? <span className="h-1 w-3 rounded-full bg-white/10" />
                 : events.map(e => (
-                  <span key={e.key} className="h-1.5 w-1.5 rounded-full" style={{ background: TYPE[e.type]?.color }} />
+                  <span key={e.key} className="h-1.5 w-1.5 rounded-full" style={{ background: typeOf(e.type).color }} />
                 ))}
             </span>
             <span className="hidden text-[11px] font-medium text-text-dim sm:block">
@@ -834,7 +860,7 @@ const STATUS_STYLE = {
 }
 
 const EventRow = React.memo(function EventRow({ event, state, now, showLocalFirst, flash }) {
-  const type = TYPE[event.type]
+  const type = typeOf(event.type)
   const status = STATUS_STYLE[state.status]
   const inProgress = state.status === 'live' || state.status === 'started'
   const done = state.status === 'done'
@@ -904,7 +930,7 @@ const EventRow = React.memo(function EventRow({ event, state, now, showLocalFirs
 /* ── Up next item ──────────────────────────────────────────────────── */
 
 const UpNextItem = React.memo(function UpNextItem({ event, state, now, showLocalFirst, onSelect }) {
-  const type = TYPE[event.type]
+  const type = typeOf(event.type)
   const inProgress = state.status === 'live' || state.status === 'started'
   const ts = inProgress ? state.startTs : state.nextTs
   const local = formatLocal(ts)
@@ -968,5 +994,227 @@ const EmptyDay = React.memo(function EmptyDay({ filtered, onClear }) {
     </div>
   )
 })
+
+/* ── Schedule editor (Admin / Master / Elder) ─────────────────────── */
+
+let _draftId = 0
+const nextDraftId = () => `d${++_draftId}`
+
+function toDraft(schedule) {
+  const rows = []
+  for (const dow of DAY_ORDER) {
+    for (const e of schedule?.[dow] || []) {
+      rows.push({
+        id: nextDraftId(),
+        dow,
+        time: e.time,
+        type: e.type,
+        name: e.name,
+        extra: e.type === 'boss' ? (e.boss || e.subtitle || '') : (e.subtitle || e.boss || ''),
+      })
+    }
+  }
+  return rows
+}
+
+function fromDraft(rows) {
+  const out = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] }
+  for (const r of rows) {
+    const extra = String(r.extra || '').trim()
+    out[r.dow].push({
+      time: r.time,
+      type: r.type,
+      name: String(r.name || '').trim(),
+      ...(extra ? (r.type === 'boss' ? { boss: extra } : { subtitle: extra }) : {}),
+    })
+  }
+  return normalizeSchedule(out)
+}
+
+// "2130", "21.30", "9:5" → "21:30", "09:05". Anything else is left for the check below.
+function tidyTime(value) {
+  const v = String(value || '').trim().replace('.', ':')
+  let h, m
+  if (/^\d{1,2}:\d{1,2}$/.test(v)) [h, m] = v.split(':').map(Number)
+  else if (/^\d{3,4}$/.test(v)) { h = Number(v.slice(0, -2)); m = Number(v.slice(-2)) }
+  else if (/^\d{1,2}$/.test(v)) { h = Number(v); m = 0 }
+  else return v
+  if (h > 23 || m > 59) return v
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+const rowProblem = r => {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(r.time || '')) return 'Time must be 24-hour, like 21:00'
+  if (!String(r.name || '').trim()) return 'Add a name'
+  return null
+}
+
+function ScheduleEditor({ schedule, onClose, onSave }) {
+  const initial = useMemo(() => toDraft(schedule), [schedule])
+  const [rows, setRows] = useState(initial)
+  const [day, setDay] = useState(() => serverDay(Date.now()).dow)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [showProblems, setShowProblems] = useState(false)
+
+  const dirty = useMemo(
+    () => JSON.stringify(fromDraft(rows)) !== JSON.stringify(normalizeSchedule(schedule)),
+    [rows, schedule]
+  )
+  const problems = rows.filter(rowProblem)
+  const dayRows = rows
+    .filter(r => r.dow === day)
+    .sort((a, b) => (a.time || '99').localeCompare(b.time || '99'))
+
+  const update = (id, patch) => setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)))
+  const remove = id => setRows(prev => prev.filter(r => r.id !== id))
+  const add = () => {
+    const last = dayRows[dayRows.length - 1]
+    setRows(prev => [...prev, { id: nextDraftId(), dow: day, time: last ? last.time : '20:00', type: last?.type || 'boss', name: '', extra: '' }])
+  }
+
+  const close = () => {
+    if (saving) return
+    if (dirty && !window.confirm('Close without saving? Your changes will be lost.')) return
+    onClose()
+  }
+
+  const resetDefault = () => {
+    if (!window.confirm('Replace the whole week with the original built-in schedule? (Nothing is saved until you press Save.)')) return
+    setRows(toDraft(normalizeSchedule(DEFAULT_SCHEDULE)))
+  }
+
+  const save = async () => {
+    setError('')
+    if (problems.length) {
+      setShowProblems(true)
+      setDay(problems[0].dow)
+      setError(`${problems.length} ${problems.length === 1 ? 'event needs' : 'events need'} a time and a name.`)
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave(fromDraft(rows))
+    } catch (e) {
+      setError(e?.message || 'Could not save the schedule.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') close() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  })
+
+  return (
+    <div className="ec-root ec-scrim fixed inset-0 z-[150] flex items-end justify-center sm:items-center sm:p-5" onMouseDown={close} role="presentation">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit weekly schedule"
+        className="ec-modal flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[22px] sm:max-w-4xl sm:rounded-[20px]"
+        onMouseDown={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 border-b border-white/[.07] px-4 py-3 sm:px-5">
+          <div className="min-w-0">
+            <h2 className="font-spectral text-[1.3rem] font-bold leading-tight text-gold-light">Edit Weekly Schedule</h2>
+            <p className="text-[12px] text-text-dim">Times are server time ({SERVER_TZ_LABEL}), 24-hour. Players see their own time automatically.</p>
+          </div>
+          <button type="button" onClick={close} aria-label="Close" className="ec-chip flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[20px] leading-none text-text-dim">×</button>
+        </div>
+
+        {/* Days */}
+        <div className="grid grid-cols-7 gap-1 border-b border-white/[.07] bg-black/20 p-1.5">
+          {DAY_ORDER.map(dow => {
+            const count = rows.filter(r => r.dow === dow).length
+            const bad = showProblems && rows.some(r => r.dow === dow && rowProblem(r))
+            return (
+              <button
+                key={dow}
+                type="button"
+                onClick={() => setDay(dow)}
+                aria-pressed={day === dow}
+                className={`ec-day flex flex-col items-center rounded-xl py-1.5 ${day === dow ? 'text-gold-bright' : 'text-text-dim hover:text-text-bright'}`}
+                aria-selected={day === dow}
+              >
+                <span className="text-[13px] font-bold">{DAY_SHORT[dow]}</span>
+                <span className={`text-[11px] font-semibold ${bad ? 'text-red-300' : ''}`}>{count} {bad ? '!' : ''}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Rows */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+          <div className="mb-2 hidden grid-cols-[84px_80px_150px_minmax(0,1.3fr)_minmax(0,1fr)_36px] gap-2 px-1 text-[11px] font-bold uppercase tracking-[.1em] text-text-dim sm:grid">
+            <span>Day</span><span>Time</span><span>Type</span><span>Event name</span><span>Boss / note</span><span />
+          </div>
+
+          {dayRows.length === 0 ? (
+            <div className="ec-well rounded-2xl px-4 py-8 text-center text-[13px] text-text-dim">No events on {DAY_NAMES[day]}.</div>
+          ) : (
+            <ul className="space-y-2">
+              {dayRows.map(r => {
+                const problem = showProblems ? rowProblem(r) : null
+                const color = typeOf(r.type).color
+                return (
+                  <li key={r.id}
+                    className={`ec-inset relative grid grid-cols-[72px_72px_minmax(0,1fr)_36px] gap-2 rounded-2xl p-2 pl-3 sm:grid-cols-[84px_80px_150px_minmax(0,1.3fr)_minmax(0,1fr)_36px] sm:items-center ${problem ? '!border-red-400/50' : ''}`}>
+                    <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full" style={{ background: color }} aria-hidden="true" />
+                    <select value={r.dow} onChange={e => update(r.id, { dow: Number(e.target.value) })} aria-label="Day" className="ec-input order-1">
+                      {DAY_ORDER.map(d => <option key={d} value={d}>{DAY_SHORT[d]}</option>)}
+                    </select>
+                    <input value={r.time} inputMode="numeric" maxLength={5} placeholder="21:00"
+                      onChange={e => update(r.id, { time: e.target.value.replace(/[^\d:.]/g, '') })}
+                      onBlur={e => update(r.id, { time: tidyTime(e.target.value) })}
+                      aria-label="Time (server, 24-hour)" className="ec-input order-2 text-center font-mono" />
+                    <select value={r.type} onChange={e => update(r.id, { type: e.target.value })} aria-label="Type" className="ec-input order-3" style={{ color }}>
+                      {SCHEDULE_TYPES.map(t => <option key={t} value={t}>{typeOf(t).label}</option>)}
+                    </select>
+                    <button type="button" onClick={() => remove(r.id)} aria-label={`Delete ${r.name || 'event'}`} title="Delete"
+                      className="ec-del order-4 flex h-9 w-9 items-center justify-center rounded-xl sm:order-6">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" /></svg>
+                    </button>
+                    <input value={r.name} onChange={e => update(r.id, { name: e.target.value })} maxLength={80} placeholder="Event name" aria-label="Event name"
+                      className="ec-input order-5 col-span-4 sm:order-4 sm:col-span-1" />
+                    <input value={r.extra} onChange={e => update(r.id, { extra: e.target.value })} maxLength={80}
+                      placeholder={r.type === 'boss' ? 'Boss name' : 'Note, e.g. 13:00 – 14:00'} aria-label={r.type === 'boss' ? 'Boss name' : 'Note'}
+                      className="ec-input order-6 col-span-4 sm:order-5 sm:col-span-1" />
+                    {problem && <span className="order-7 col-span-4 text-[12px] font-semibold text-red-300 sm:col-span-6">{problem}</span>}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+
+          <button type="button" onClick={add} className="ec-chip mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-2xl py-2.5 text-[13px] font-semibold text-gold-light">
+            + Add event on {DAY_NAMES[day]}
+          </button>
+          <p className="mt-2 text-[12px] leading-5 text-text-dim">
+            Tip: for events with a set length, write it in the note as <span className="text-text-bright">13:00 – 14:00</span> — the calendar then shows "Happening now" and how long is left.
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-white/[.07] px-3 py-3 sm:px-5" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+          {error && <div role="alert" className="mb-2 rounded-xl border border-red-400/30 bg-red-500/[.08] px-3 py-2 text-[13px] text-red-200">{error}</div>}
+          <div className="grid grid-cols-3 items-center gap-2 sm:flex">
+            <span className="col-span-3 text-[12px] text-text-dim sm:mr-auto">
+              {rows.length} events · {dirty ? <span className="font-semibold text-amber-200">unsaved changes</span> : 'no changes'}
+            </span>
+            <button type="button" onClick={resetDefault} disabled={saving} className="ec-chip rounded-full px-3.5 py-2 text-[12px] font-semibold text-text-dim">Reset<span className="hidden sm:inline"> to default</span></button>
+            <button type="button" onClick={close} disabled={saving} className="ec-chip rounded-full px-4 py-2 text-[12px] font-semibold text-text-bright">Cancel</button>
+            <button type="button" onClick={save} disabled={saving || !dirty} className="ec-save rounded-full px-5 py-2 text-[12px] font-bold">
+              {saving ? 'Saving…' : <>Save<span className="hidden sm:inline"> schedule</span></>}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default EventCalendar

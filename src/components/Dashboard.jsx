@@ -1,39 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback, useId, useRef } from 'react'
 import { ClanNoticePreview } from './NoticeBoard'
+import { useClanSchedule, buildSchedule, DEFAULT_SCHEDULE } from './clanSchedule'
 
-const WEEKLY_SCHEDULE = {
-  1: [
-    { time: '21:00', type: 'boss', name: 'Canyon of Nidavellir 1F', boss: 'Nargrim' },
-    { time: '21:10', type: 'boss', name: 'Folkvang 5F · Inter-Server', boss: 'Twilight Disaster Nirva' },
-  ],
-  2: [
-    { time: '20:00', type: 'battle', name: 'Server Battle', subtitle: 'Lv 40+ · Top 500 Growth Power' },
-  ],
-  3: [
-    { time: '21:00', type: 'boss', name: 'Canyon of the World Tree', boss: 'Twilight Overlord Rogvalt' },
-    { time: '21:10', type: 'boss', name: 'Crossroads of Ragnarok', boss: 'Faded Oath Vargreif' },
-  ],
-  4: [
-    { time: '13:00', type: 'battle', name: 'Clan Annihilation', subtitle: '13:00 – 14:00' },
-    { time: '19:00', type: 'boss', name: 'Myrkrheim', boss: 'Wrath of the Earth Bergbernd' },
-    { time: '20:00', type: 'battle', name: 'Clan Annihilation', subtitle: '20:00 – 21:00' },
-  ],
-  5: [
-    { time: '21:00', type: 'boss', name: 'Folkvang 5F · Inter-Server', boss: 'Twilight Disaster Nirva' },
-    { time: '21:10', type: 'boss', name: 'Crossroads of Ragnarok', boss: 'Faded Oath Vargreif' },
-  ],
-  6: [
-    { time: '13:00', type: 'treasure', name: "Sindri's Treasure Island", subtitle: '13:00 – 14:00' },
-    { time: '19:00', type: 'boss', name: 'Glasir Forest', boss: 'Divine Beast of Void Ulnos' },
-    { time: '20:00', type: 'treasure', name: "Sindri's Treasure Island", subtitle: '20:00 – 21:00' },
-    { time: '21:00', type: 'sanctuary', name: 'Clan Sanctuary', subtitle: '21:00 – 22:00' },
-  ],
-  0: [
-    { time: '20:00', type: 'arena', name: 'Clan Arena Tournament', subtitle: 'See Announcement' },
-    { time: '22:00', type: 'boss', name: 'Canyon of the World Tree', boss: 'Twilight Overlord Rogvalt' },
-    { time: '22:10', type: 'boss', name: 'Canyon of Nidavellir 1F', boss: 'Nargrim' },
-  ],
-}
+// The schedule now lives in Supabase (see clanSchedule.js). This built-in
+// copy is only the fallback used before it loads or if it can't be reached.
+const WEEKLY_SCHEDULE = DEFAULT_SCHEDULE
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -716,6 +687,10 @@ export default function Dashboard({ ctx, setPage }) {
     return out
   }, [auctions])
 
+  // Shared with the Event Calendar; staff can edit it there.
+  const clanSchedule = useClanSchedule(ctx.supabase)
+  const { byDay: scheduleByDay, all: scheduleEvents } = useMemo(() => buildSchedule(clanSchedule), [clanSchedule])
+
   const goAuctions = useCallback(() => setPage('auctions'), [setPage])
   const goMembers = useCallback(() => setPage('members'), [setPage])
   const goAttendance = useCallback(() => setPage('attendance'), [setPage])
@@ -729,7 +704,7 @@ export default function Dashboard({ ctx, setPage }) {
         currentUser={currentUser}
       />
 
-      <UpcomingEventPreview onOpenCalendar={goCalendar} />
+      <UpcomingEventPreview onOpenCalendar={goCalendar} allEvents={scheduleEvents} scheduleByDay={scheduleByDay} />
 
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 min-w-0" aria-label="Quick actions">
         <ActionTile icon={<DbIcon name="attendance" />} label="Attendance" hint={isElder ? 'Record & Award Coins' : 'View Attendance'} onClick={goAttendance} />
@@ -889,7 +864,7 @@ function CountdownDigits({ ms, color, caption }) {
 }
 
 // Mon → Sun strip: a dot per event. Done = faded, next = glowing, live = pulsing.
-function WeekStrip({ now, highlight }) {
+function WeekStrip({ now, highlight, scheduleByDay = SCHEDULE_BY_DAY }) {
   const today = getZoneParts(now, SERVER_TZ)
   const todayIdx = DAY_ORDER.indexOf(today.dow)
   const nowMin = today.hh * 60 + today.mm
@@ -897,7 +872,7 @@ function WeekStrip({ now, highlight }) {
   return (
     <div className="grid grid-cols-7 gap-1 sm:gap-1.5" role="list" aria-label="This week's events">
       {DAY_ORDER.map((dow, idx) => {
-        const events = SCHEDULE_BY_DAY[dow] || []
+        const events = scheduleByDay[dow] || []
         const isToday = idx === todayIdx
         return (
           <div key={dow} role="listitem"
@@ -931,11 +906,11 @@ function WeekStrip({ now, highlight }) {
 // The ring fills up over the last 6 hours before an event starts.
 const RING_WINDOW_MS = 6 * 60 * 60 * 1000
 
-const UpcomingEventPreview = React.memo(function UpcomingEventPreview({ onOpenCalendar }) {
+const UpcomingEventPreview = React.memo(function UpcomingEventPreview({ onOpenCalendar, allEvents = ALL_EVENTS, scheduleByDay = SCHEDULE_BY_DAY }) {
   const now = useNow()
 
   const info = useMemo(() => {
-    const occ = ALL_EVENTS.map(ev => {
+    const occ = allEvents.map(ev => {
       const nextTs = nextOccurrenceInZone(ev.dow, ev.time, now, SERVER_TZ)
       return { ...ev, nextTs, lastTs: nextTs - WEEK_MS, durMs: parseEventDurationMs(ev) }
     })
@@ -943,7 +918,7 @@ const UpcomingEventPreview = React.memo(function UpcomingEventPreview({ onOpenCa
     const live = occ.find(e => e.durMs > 0 && now >= e.lastTs && now < e.lastTs + e.durMs) || null
     const prevTs = Math.max(...occ.map(e => e.lastTs))
     return { live, next: occ[0] || null, after: occ[1] || null, prevTs }
-  }, [now])
+  }, [now, allEvents])
 
   if (!info.next) return null
 
@@ -1056,7 +1031,7 @@ const UpcomingEventPreview = React.memo(function UpcomingEventPreview({ onOpenCa
             {/* Wide screens: the week sits in the middle instead of its own row */}
             <div className="hidden min-w-0 self-stretch border-x border-white/[0.07] px-4 xl:flex xl:flex-[1.15_1_0%] xl:flex-col xl:justify-center">
               <div className="mb-1.5 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-text-dim">This Week</div>
-              <div className="mx-auto w-full max-w-[520px]"><WeekStrip now={now} highlight={main} /></div>
+              <div className="mx-auto w-full max-w-[520px]"><WeekStrip now={now} highlight={main} scheduleByDay={scheduleByDay} /></div>
             </div>
 
             <div className="hidden shrink-0 sm:block">
@@ -1078,7 +1053,7 @@ const UpcomingEventPreview = React.memo(function UpcomingEventPreview({ onOpenCa
                 </span>
               )}
             </div>
-            <WeekStrip now={now} highlight={main} />
+            <WeekStrip now={now} highlight={main} scheduleByDay={scheduleByDay} />
           </div>
         </div>
       </button>
