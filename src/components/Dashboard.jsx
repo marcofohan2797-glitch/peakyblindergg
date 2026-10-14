@@ -209,6 +209,47 @@ const DB_STYLES = `
   }
 
 
+
+  /* Featured picture stage (same as the Auctions page) */
+  @keyframes db-float   { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+  @keyframes db-rise    { 0% { transform: translateY(0) scale(.6); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-110px) scale(1); opacity: 0; } }
+  @keyframes db-glowb   { 0%, 100% { opacity: .72; transform: scale(.97); } 50% { opacity: 1; transform: scale(1.03); } }
+  .db-root .db-stage {
+    position: relative; overflow: hidden; border-radius: 16px; isolation: isolate;
+    border: 1px solid var(--db-c-line); background: rgba(0,0,0,.42);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 14px 30px -18px var(--db-c-glow);
+  }
+  .db-root .db-stage-amb {
+    position: absolute; inset: -20%; width: 140%; height: 140%; max-width: none; object-fit: cover;
+    filter: blur(18px) saturate(1.5); opacity: .5; z-index: -2; pointer-events: none;
+  }
+  .db-root .db-stage-glow {
+    position: absolute; left: 50%; top: 50%; width: 120%; height: 120%; translate: -50% -50%; z-index: -1;
+    border-radius: 50%; background: radial-gradient(circle, var(--db-c-glow) 0%, transparent 62%);
+    animation: db-glowb 6s ease-in-out infinite; will-change: transform, opacity;
+  }
+  .db-root .db-stage-rays {
+    position: absolute; left: 50%; top: 50%; width: 240%; height: 240%; translate: -50% -50%; z-index: -1;
+    background: repeating-conic-gradient(from 0deg, transparent 0deg 10deg, var(--db-c-ray) 13deg, transparent 16deg 26deg);
+    -webkit-mask: radial-gradient(circle, #000 10%, transparent 50%); mask: radial-gradient(circle, #000 10%, transparent 50%);
+    animation: db-spin 40s linear infinite; will-change: transform;
+  }
+  .db-root .db-stage-hover {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    transition: transform .45s cubic-bezier(.2,.8,.2,1);
+  }
+  .db-root .db-auc:hover .db-stage-hover { transform: scale(1.07) rotate(-2deg); }
+  .db-root .db-stage-float { width: 74%; animation: db-float 6s ease-in-out infinite; animation-delay: var(--db-d, 0ms); will-change: transform; }
+  .db-root .db-stage-img {
+    position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; border-radius: 12px;
+    box-shadow: 0 0 0 1px var(--db-c-line), 0 14px 22px -10px rgba(0,0,0,.95), 0 0 24px -6px var(--db-c-glow);
+  }
+  .db-root .db-stage-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .db-root .db-stage-spark {
+    position: absolute; bottom: 6px; width: 3px; height: 3px; border-radius: 50%; z-index: 0; pointer-events: none; opacity: 0;
+    background: #fff; box-shadow: 0 0 6px 2px var(--db-c-glow);
+    animation: db-rise 4.2s linear infinite; will-change: transform, opacity;
+  }
   /* Next-event countdown */
   .db-root .db-ring-fill { transition: stroke-dashoffset 1s linear, stroke .4s ease; }
   .db-root .db-live.db-live-green { border-color: rgba(74,222,128,.3); background: rgba(74,222,128,.08); color: #86efac; }
@@ -224,10 +265,6 @@ const DB_STYLES = `
   }
   .db-root .db-tick { animation: db-tick .28s ease-out; }
   @keyframes db-tick { from { transform: translateY(-20%); opacity: .45; } to { transform: none; opacity: 1; } }
-  @media (prefers-reduced-motion: reduce) {
-    .db-root .db-ring-fill { transition: none; }
-    .db-root .db-dot-next::after, .db-root .db-tick { animation: none; }
-  }
   /* Live auctions: pulse dot, featured glow, time drain, new-bid flash */
   .db-root .db-live {
     display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px 2px 7px; border-radius: 999px;
@@ -306,10 +343,6 @@ const DB_STYLES = `
   @keyframes db-bump {
     0% { box-shadow: 0 0 0 0 rgba(242,204,96,.6); }
     100% { box-shadow: 0 0 0 10px rgba(242,204,96,0); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .db-root .db-live-dot::after, .db-root .db-ft-ring rect, .db-root .db-ft-ring2 > span, .db-root .db-auc[data-urgency="critical"]::after, .db-root .db-bump { animation: none; }
-    .db-root .db-drain > span { transition: none; }
   }
 `
 
@@ -651,18 +684,18 @@ export default function Dashboard({ ctx, setPage }) {
   const isAdmin = currentUser?.role === 'Admin'
   const isElder = isAdmin || currentUser?.role === 'Elder' || currentUser?.role === 'Master'
 
-  const activeAuctions = useMemo(() => {
-    return auctions
-      .filter(a => a.status === 'active')
-      .sort((a, b) => (a.endsAt || 0) - (b.endsAt || 0))
-      .slice(0, MAX_LIVE_AUCTIONS)
-  }, [auctions])
-
   // Featured lots (★ set on the Auctions page). When there are any, the
   // dashboard spotlights them; otherwise it shows the regular live auctions.
   const featuredAuctions = useMemo(() => {
     return auctions
       .filter(a => a.status === 'active' && isFeaturedAuction(a))
+      .sort((a, b) => (a.endsAt || 0) - (b.endsAt || 0))
+      .slice(0, 3)
+  }, [auctions])
+
+  const regularAuctions = useMemo(() => {
+    return auctions
+      .filter(a => a.status === 'active' && !isFeaturedAuction(a))
       .sort((a, b) => (a.endsAt || 0) - (b.endsAt || 0))
       .slice(0, 3)
   }, [auctions])
@@ -706,8 +739,8 @@ export default function Dashboard({ ctx, setPage }) {
       </section>
 
       <LiveAuctionsStrip
-        auctions={activeAuctions}
         featured={featuredAuctions}
+        regular={regularAuctions}
         totalCount={totalActiveAuctions}
         onOpenAll={goAuctions}
         currentUser={currentUser}
@@ -1085,23 +1118,25 @@ function getUrgency(remaining) {
 }
 
 const LiveAuctionsStrip = React.memo(function LiveAuctionsStrip({
-  auctions, featured = [], totalCount, onOpenAll, currentUser,
+  featured = [], regular = [], totalCount, onOpenAll, currentUser,
 }) {
   const now = useNow()
   if (totalCount === 0) return null
 
   const hasFeatured = featured.length > 0
-  const visibleAuctions = hasFeatured ? featured : auctions.slice(0, 3)
-  const remainingCount = Math.max(0, totalCount - visibleAuctions.length)
-  const single = visibleAuctions.length === 1
-  const gridClass = single
+  // With featured lots: featured on top, then up to 3 regular ones below.
+  // Without: up to 3 regular ones, ending soonest first.
+  const regularShown = regular.slice(0, 3)
+  const remainingCount = Math.max(0, totalCount - featured.length - regularShown.length)
+
+  const gridFor = list => list.length === 1
     ? 'grid min-w-0'
-    : visibleAuctions.length === 2
+    : list.length === 2
       ? 'grid min-w-0 gap-3 md:grid-cols-2'
       : 'grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3'
 
   return (
-    <section className="relative min-w-0" aria-label={hasFeatured ? 'Featured auctions' : 'Live auctions'}>
+    <section className="relative min-w-0" aria-label="Live auctions">
       <div className="mb-2.5 flex min-w-0 items-end justify-between gap-2 sm:mb-3 sm:gap-3">
         <div className="min-w-0">
           <div className="mb-1.5 flex flex-wrap items-center gap-2">
@@ -1110,12 +1145,10 @@ const LiveAuctionsStrip = React.memo(function LiveAuctionsStrip({
               <span className="db-live-dot" aria-hidden="true" />
               {totalCount} Live
             </span>
-            {hasFeatured && (
-              <span className="db-feat-chip">★ Featured</span>
-            )}
+            {hasFeatured && <span className="db-feat-chip">★ {featured.length} Featured</span>}
           </div>
           <h2 className="font-spectral text-[1.5rem] font-bold leading-none text-text-bright sm:text-[1.75rem]">
-            {hasFeatured ? (single ? 'Featured Auction' : 'Featured Auctions') : 'Live Auctions'}
+            Live Auctions
           </h2>
         </div>
         <button type="button" onClick={onOpenAll}
@@ -1124,23 +1157,93 @@ const LiveAuctionsStrip = React.memo(function LiveAuctionsStrip({
         </button>
       </div>
 
-      <div className={gridClass}>
-        {visibleAuctions.map(a => (
-          <LiveAuctionCard key={a.id} auction={a} now={now}
-            currentUserName={currentUser?.name} onOpenAll={onOpenAll}
-            wide={single} featured={hasFeatured} />
-        ))}
-      </div>
+      {hasFeatured && (
+        <div className={gridFor(featured)}>
+          {featured.map((a, index) => (
+            <LiveAuctionCard key={a.id} auction={a} now={now} index={index}
+              currentUserName={currentUser?.name} onOpenAll={onOpenAll}
+              wide={featured.length === 1} featured />
+          ))}
+        </div>
+      )}
+
+      {regularShown.length > 0 && (
+        <>
+          {hasFeatured && (
+            <div className="mb-2 mt-3.5 flex items-center gap-3">
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-text-dim">More Live Auctions</span>
+              <span className="h-px flex-1 bg-white/[0.07]" />
+            </div>
+          )}
+          <div className={gridFor(regularShown)}>
+            {regularShown.map(a => (
+              <LiveAuctionCard key={a.id} auction={a} now={now}
+                currentUserName={currentUser?.name} onOpenAll={onOpenAll}
+                wide={regularShown.length === 1 && !hasFeatured} />
+            ))}
+          </div>
+        </>
+      )}
 
       {remainingCount > 0 && (
         <button type="button" onClick={onOpenAll}
           className="db-chip mt-3 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-gold-light hover:text-gold-bright focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold/60">
-          +{remainingCount} More {hasFeatured ? 'Live ' : ''}{remainingCount === 1 ? 'Auction' : 'Auctions'} <span aria-hidden="true">→</span>
+          +{remainingCount} More {remainingCount === 1 ? 'Auction' : 'Auctions'} <span aria-hidden="true">→</span>
         </button>
       )}
     </section>
   )
 })
+
+function hexToRgb(hex) {
+  const h = String(hex || '').replace('#', '')
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
+  const n = parseInt(full, 16)
+  return Number.isFinite(n) ? `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}` : '242,204,96'
+}
+
+const SPARK_SPOTS = [14, 34, 54, 74, 88]
+
+// Same picture stage as the Auctions page featured lot:
+// blurred colour fill, slow rays, breathing glow, rising sparkles, floating item.
+function FeaturedShowcase({ auction, color, index = 0, className = '' }) {
+  const rgb = hexToRgb(color)
+  return (
+    <div className={`db-stage shrink-0 ${className}`}
+      style={{
+        '--db-d': `${index * 140}ms`,
+        '--db-c-line': `rgba(${rgb},.35)`,
+        '--db-c-glow': `rgba(${rgb},.55)`,
+        '--db-c-ray': `rgba(${rgb},.16)`,
+      }}>
+      {auction.imageUrl && (
+        <img src={auction.imageUrl} alt="" aria-hidden="true" className="db-stage-amb" loading="lazy" decoding="async" />
+      )}
+      <div className="db-stage-rays" aria-hidden="true" />
+      <div className="db-stage-glow" aria-hidden="true" />
+      {SPARK_SPOTS.map((left, i) => (
+        <span key={left} className="db-stage-spark" aria-hidden="true"
+          style={{ left: `${left}%`, animationDelay: `${(i * 0.8 + index * 0.35).toFixed(2)}s` }} />
+      ))}
+      <div className="db-stage-hover">
+        <div className="db-stage-float">
+          {auction.imageUrl ? (
+            <div className="db-stage-img">
+              <img src={auction.imageUrl} alt="" loading="lazy" decoding="async"
+                onError={e => { e.currentTarget.style.display = 'none' }} />
+            </div>
+          ) : (
+            <div className="db-stage-img flex items-center justify-center bg-black/40">
+              <span className="font-spectral text-3xl font-bold leading-none" style={{ color }}>
+                {auction.name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // Bidder count + "last bid 3m ago". Flashes once when a new bid comes in.
 function BidPulse({ bidderCount, lastBidAt, now }) {
@@ -1189,7 +1292,7 @@ function TimeDrain({ progress }) {
 }
 
 const LiveAuctionCard = React.memo(function LiveAuctionCard({
-  auction: a, now, currentUserName, onOpenAll, wide = false, featured = false,
+  auction: a, now, currentUserName, onOpenAll, wide = false, featured = false, index = 0,
 }) {
   const rarity = RARITY_COLORS[a.rarity] || RARITY_COLORS.epic
   const remaining = Math.max(0, (a.endsAt || 0) - now)
@@ -1262,7 +1365,7 @@ const LiveAuctionCard = React.memo(function LiveAuctionCard({
         <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-dim">
           {urgency === 'soon' ? 'Final Hour' : 'Ends In'}
         </div>
-        <div className={`mt-1.5 truncate font-mono text-[1.3rem] font-bold leading-none tabular-nums ${isEnding ? 'motion-safe:animate-pulse' : ''}`}
+        <div className={`mt-1.5 truncate font-mono text-[1.3rem] font-bold leading-none tabular-nums ${isEnding ? 'animate-pulse' : ''}`}
           style={{ color: timeColor }}>
           {timeLabel}
         </div>
@@ -1291,7 +1394,9 @@ const LiveAuctionCard = React.memo(function LiveAuctionCard({
         <div className="relative p-4 pl-5 sm:p-5 sm:pl-6 lg:pl-7">
           <div className="flex min-w-0 flex-col gap-3.5 sm:flex-row sm:items-center sm:gap-5">
             <div className="flex min-w-0 flex-1 items-center gap-3.5 sm:gap-5">
-              {thumb(featured ? 'h-[84px] w-[84px] sm:h-[112px] sm:w-[112px] lg:h-[124px] lg:w-[124px]' : 'h-[72px] w-[72px] sm:h-[88px] sm:w-[88px]')}
+              {featured
+                ? <FeaturedShowcase auction={a} color={rarity.color} index={index} className="h-[104px] w-[104px] sm:h-[136px] sm:w-[136px]" />
+                : thumb('h-[72px] w-[72px] sm:h-[88px] sm:w-[88px]')}
               <div className="min-w-0 flex-1">
                 {chips}
                 <div className={`mt-1.5 truncate font-spectral font-bold leading-tight ${featured ? 'text-[1.35rem] sm:text-[1.75rem] lg:text-[2rem]' : 'text-[1.2rem] sm:text-[1.5rem]'}`}
@@ -1312,7 +1417,9 @@ const LiveAuctionCard = React.memo(function LiveAuctionCard({
       ) : (
         <div className="relative flex min-w-0 flex-col p-4 pl-5 sm:p-[18px] sm:pl-6">
           <div className="flex min-w-0 items-start gap-3.5">
-            {thumb('h-[74px] w-[74px] sm:h-[80px] sm:w-[80px]')}
+            {featured
+              ? <FeaturedShowcase auction={a} color={rarity.color} index={index} className="h-[96px] w-[96px]" />
+              : thumb('h-[74px] w-[74px] sm:h-[80px] sm:w-[80px]')}
             <div className="min-w-0 flex-1">
               {chips}
               <div className="mt-1.5 truncate font-spectral text-[1.3rem] font-bold leading-tight" style={{ color: rarity.color }}>
@@ -1681,7 +1788,7 @@ const NextEventCard = React.memo(function NextEventCard({ activeRegion }) {
             Starts In
           </div>
           <div
-            className={`font-mono text-2xl sm:text-2xl md:text-3xl font-bold tabular-nums leading-none whitespace-nowrap ${urgent ? 'motion-safe:animate-pulse' : ''}`}
+            className={`font-mono text-2xl sm:text-2xl md:text-3xl font-bold tabular-nums leading-none whitespace-nowrap ${urgent ? 'animate-pulse' : ''}`}
             style={{ color: t.color }}
           >
             {formatCountdown(remaining)}
