@@ -1261,8 +1261,10 @@ export default function Layout({ ctx, page, setPage, children, toasts }) {
                     <span className="hidden text-[11px] text-text-dim xl:block">▾</span>
                   </button>
 
+                  {/* Phones: the top bar clips anything hanging below it (overflow-hidden),
+                      so the menu is placed on the screen instead, like the notification panel. */}
                   {userMenuOpen && (
-                    <div className="lg-panel lg-pop absolute right-0 top-full mt-2 w-[min(16rem,calc(100vw-1rem))] overflow-hidden rounded-2xl">
+                    <div className="lg-panel lg-pop fixed right-2.5 top-[70px] z-[120] w-[min(17rem,calc(100vw-20px))] overflow-hidden rounded-2xl md:absolute md:right-0 md:top-full md:mt-2 md:w-[16rem]">
                       <div className="border-b border-white/[0.08] bg-white/[0.03] px-4 py-4">
                         <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-dim">Signed in as</div>
                         <div className="mt-1.5 truncate text-[15px] font-semibold text-text-bright">{currentUser.name}</div>
