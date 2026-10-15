@@ -733,8 +733,27 @@ function computeFinalBidEntries(auction) {
     .sort((a, b) => b.amount - a.amount || a.time - b.time)
 }
 
+// For finished auctions the server's settled winner (top_bidder) is the truth.
+// On a tied final bid the server picks the winner by random draw, which the
+// client-side sort (earliest bid first) cannot know.
 function getAuctionWinner(auction) {
-  return getFinalBidEntries(auction)[0] || null
+  const finalBids = getFinalBidEntries(auction)
+  const settled = auction?.status !== 'active' ? String(auction?.topBidder || '') : ''
+  if (settled) {
+    return finalBids.find(b => String(b?.bidder || '') === settled)
+      || { bidder: settled, amount: Number(auction?.currentBid) || 0, time: 0 }
+  }
+  return finalBids[0] || null
+}
+
+// Final bids with the settled winner listed first (rest keep their order).
+function getOrderedFinalBids(auction) {
+  const finalBids = getFinalBidEntries(auction)
+  const winner = getAuctionWinner(auction)
+  if (!winner) return finalBids
+  const idx = finalBids.findIndex(b => b.bidder === winner.bidder)
+  if (idx <= 0) return finalBids
+  return [finalBids[idx], ...finalBids.slice(0, idx), ...finalBids.slice(idx + 1)]
 }
 
 function getBidderCount(auction) {
@@ -3297,9 +3316,10 @@ const EndedAuctionRow = React.memo(function EndedAuctionRow({
   isExpanded, onToggle, onAssignDistributor, onDelete,
   isSelected = false, onToggleSelect,
 }) {
-  const finalBids = getFinalBidEntries(a)
-  const winnerEntry = finalBids[0] || null
+  const finalBids = getOrderedFinalBids(a)
+  const winnerEntry = getAuctionWinner(a)
   const winner = winnerEntry?.bidder || a.topBidder || ''
+  const isTieDraw = finalBids.filter(b => b.amount === winnerEntry?.amount).length > 1
   const finalAmount = winnerEntry?.amount || Number(a.currentBid) || 0
   const isMe = !!winner && currentUser?.name === winner
   const endedAt = a.endedAt || a.endsAt || 0
@@ -3433,7 +3453,7 @@ const EndedAuctionRow = React.memo(function EndedAuctionRow({
           <div className="mt-2.5 overflow-hidden rounded-xl ag-well">
             <div className="divide-y divide-white/[.04]">
               {finalBids.map((b, idx) => {
-                const isWinner = idx === 0
+                const isWinner = !!winner && b.bidder === winner
                 return (
                   <div
                     key={`${b.bidder}-${b.time}-${idx}`}
@@ -3451,7 +3471,7 @@ const EndedAuctionRow = React.memo(function EndedAuctionRow({
                       Final bid · {formatLocalClock(b.time)}
                     </div>
                     <div className="text-right text-[11px] font-bold uppercase tracking-[.12em] text-green-400">
-                      {isWinner ? 'Winner' : ''}
+                      {isWinner ? (isTieDraw ? 'Winner · Tie draw' : 'Winner') : ''}
                     </div>
                   </div>
                 )
