@@ -149,7 +149,7 @@ function targetName(log, members) {
 
 function StatCard({ label, value, hint }) {
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-[#0c0d10] p-5 shadow-[0_12px_35px_rgba(0,0,0,.18)]">
+    <div className="aa-card rounded-2xl p-4">
       <div className="text-[14px] font-bold uppercase tracking-[0.18em] text-text-dim">{label}</div>
       <div className="mt-1 font-mono text-2xl font-black text-gold-bright">{value}</div>
       {hint && <div className="mt-1 text-[14px] text-text-dim">{hint}</div>}
@@ -158,19 +158,18 @@ function StatCard({ label, value, hint }) {
 }
 
 function ActionCard({ icon, title, description, button, onClick, danger = false }) {
+  // The whole card is the button: one clear target, no heavy bar underneath.
   return (
-    <div className={`rounded-2xl border p-5 shadow-[0_12px_35px_rgba(0,0,0,.18)] ${danger ? 'border-red-400/15 bg-red-400/[0.025]' : 'border-white/[0.07] bg-[#0b0c0f]'}`}>
-      <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gold/15 bg-gold/[0.04] text-lg">{icon}</div>
-        <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-black uppercase tracking-[0.15em] text-text-bright">{title}</div>
-          <p className="mt-1 text-[14px] leading-6 text-text-dim">{description}</p>
-          <button type="button" onClick={onClick} className={`mt-3 rounded-lg px-3 py-2 text-[14px] font-bold uppercase tracking-[0.1em] ${danger ? 'border border-red-400/25 bg-red-400/[0.05] text-red-300 hover:bg-red-400/10' : 'border border-gold/20 bg-gold/[0.04] text-gold-light hover:bg-gold/10'}`}>
-            {button}
-          </button>
-        </div>
+    <button type="button" onClick={onClick} className={`aa-tile group flex h-full w-full flex-col rounded-2xl p-4 text-left ${danger ? 'aa-tile-danger' : ''}`}>
+      <div className="flex items-center gap-3">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-lg ${danger ? 'border-red-400/25 bg-red-400/[0.08]' : 'border-gold/25 bg-gold/[0.07]'}`}>{icon}</div>
+        <div className={`min-w-0 flex-1 text-[15px] font-bold ${danger ? 'text-red-200' : 'text-text-bright'}`}>{title}</div>
       </div>
-    </div>
+      <p className="mt-2 text-[13px] leading-5 text-text-dim">{description}</p>
+      <span className={`aa-tile-cta mt-auto inline-flex items-center gap-1.5 pt-3 text-[13px] font-bold ${danger ? 'text-red-300' : 'text-gold-light'}`}>
+        {button}<span aria-hidden="true" className="transition-transform group-hover:translate-x-1">→</span>
+      </span>
+    </button>
   )
 }
 
@@ -224,11 +223,11 @@ function AddMemberModal({ ctx, onClose }) {
   const set = (key, value) => setForm(prev => ({ ...prev, [key]: value }))
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 p-4" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="w-full max-w-2xl rounded-2xl border border-gold/20 bg-[#0a0b0d] p-6 shadow-[0_35px_100px_rgba(0,0,0,.7)] sm:p-8">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center aa-scrim p-3 sm:p-4" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="w-full max-w-2xl rounded-2xl border border-gold/20 aa-modal p-5 sm:p-8">
         <div className="mb-5 flex items-start justify-between">
           <div><div className="text-[12px] font-bold uppercase tracking-[0.24em] text-gold-light">Member Management</div><h2 className="font-spectral text-2xl font-bold text-white">Add New Member</h2></div>
-          <button onClick={onClose} className="rounded-md border border-white/10 px-3 py-2 text-xs text-text-dim">✕</button>
+          <button onClick={onClose} className="aa-x flex h-9 w-9 items-center justify-center rounded-xl text-sm">✕</button>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <label><span className="mb-1.5 block text-[14px] font-bold uppercase tracking-wider text-gold-light">Character Name *</span><input className="input h-12 w-full px-4 text-[14px]" value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Arthur Shelby" /></label>
@@ -242,7 +241,7 @@ function AddMemberModal({ ctx, onClose }) {
           <label className="sm:col-span-2"><span className="mb-1.5 block text-[14px] font-bold uppercase tracking-wider text-gold-light">Role</span><select className="input h-12 w-full px-4 text-[14px]" value={form.role} onChange={e => set('role', e.target.value)}><option>Member</option>{isMaster && <><option>Elder</option><option>Master</option></>}{isAdmin && <option>Admin</option>}</select></label>
         </div>
         <div className="mt-4 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 text-[14px] leading-6 text-text-dim">New characters start with <strong className="text-gold-light">100 Coins</strong>. Staff can choose the Card Grade and role according to their permissions.</div>
-        <div className="mt-5 flex justify-end gap-2"><button onClick={onClose} className="rounded-lg border border-white/10 px-4 py-2 text-xs text-text-dim">Cancel</button><button onClick={submit} disabled={saving} className="btn-gold text-xs px-5 py-2.5">{saving ? 'Creating...' : 'Create Member'}</button></div>
+        <div className="mt-5 flex justify-end gap-2"><button onClick={onClose} className="aa-btn">Cancel</button><button onClick={submit} disabled={saving} className="btn-gold text-xs px-5 py-2.5">{saving ? 'Creating...' : 'Create Member'}</button></div>
       </div>
     </div>
   )
@@ -354,9 +353,9 @@ function ManageMemberModal({ ctx, member, onClose }) {
 
   return (
     <>
-      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 p-4" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
-        <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl border border-gold/20 bg-[#0a0b0d] p-6 shadow-[0_35px_100px_rgba(0,0,0,.7)] sm:p-8">
-          <div className="mb-5 flex items-start justify-between"><div><div className="text-[12px] font-bold uppercase tracking-[0.24em] text-gold-light">Staff Controls</div><h2 className="font-spectral text-2xl font-bold text-white">{member.name}</h2><div className="mt-1 text-[14px] uppercase tracking-wider text-text-dim">{member.role} · {member.cls || '—'}</div></div><button onClick={onClose} className="rounded-md border border-white/10 px-3 py-2 text-xs text-text-dim">✕</button></div>
+      <div className="fixed inset-0 z-[90] flex items-center justify-center aa-scrim p-3 sm:p-4" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
+        <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl border border-gold/20 aa-modal p-5 sm:p-8">
+          <div className="mb-5 flex items-start justify-between"><div><div className="text-[12px] font-bold uppercase tracking-[0.24em] text-gold-light">Staff Controls</div><h2 className="font-spectral text-2xl font-bold text-white">{member.name}</h2><div className="mt-1 text-[14px] uppercase tracking-wider text-text-dim">{member.role} · {member.cls || '—'}</div></div><button onClick={onClose} className="aa-x flex h-9 w-9 items-center justify-center rounded-xl text-sm">✕</button></div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label><span className="mb-1.5 block text-[14px] font-bold uppercase tracking-wider text-gold-light">Class</span><select className="input h-12 w-full px-4 text-[14px]" value={form.cls} onChange={e => setForm(p => ({ ...p, cls: e.target.value }))}><>{CLASS_OPTIONS.map(option => <option key={option}>{option}</option>)}</></select></label>
             <label><span className="mb-1.5 block text-[14px] font-bold uppercase tracking-wider text-gold-light">Card Grade</span><select className="input h-12 w-full px-4 text-[14px]" value={form.profile_grade} onChange={e => setForm(p => ({ ...p, profile_grade: e.target.value }))}>{GRADE_OPTIONS.map(option => <option key={option}>{option === 'Mythic' ? 'Mythical' : option}</option>)}</select></label>
@@ -368,7 +367,7 @@ function ManageMemberModal({ ctx, member, onClose }) {
           <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3"><div className="text-[14px] font-bold uppercase tracking-wider text-text-dim">Power Cooldown</div><div className="mt-1 font-mono text-lg font-bold text-gold-light">{cooldownText(getCooldown(member))}</div><div className="mt-1 text-[14px] text-text-dim">Staff Power updates are unlimited.</div></div><button type="button" onClick={resetCooldown} className="rounded-xl border border-gold/20 bg-gold/[0.035] p-3 text-left hover:bg-gold/[0.07]"><div className="text-[14px] font-bold uppercase tracking-wider text-gold-light">Power Control</div><div className="mt-1 text-[13px] font-bold text-white">Reset Power Cooldown</div><div className="mt-1 text-[14px] text-text-dim">Give this member 3 fresh Power updates.</div></button></div>
           {(canRole || canReset) && <div className="mt-4 border-t border-white/[0.07] pt-4"><div className="mb-2 text-[14px] font-bold uppercase tracking-[0.18em] text-text-dim">Role & Account</div><div className="flex flex-wrap gap-2">{canRole && member.role === 'Member' && <button onClick={() => changeRole('Elder')} className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-[14px] font-bold uppercase tracking-[0.1em] text-text-dim hover:border-gold/20 hover:text-gold-light disabled:opacity-40">↑ Promote Elder</button>}{canRole && member.role === 'Elder' && <><button onClick={() => changeRole('Member')} className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-[14px] font-bold uppercase tracking-[0.1em] text-text-dim hover:border-gold/20 hover:text-gold-light disabled:opacity-40">↓ Demote Member</button>{isMaster && <button onClick={() => changeRole('Master')} className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-[14px] font-bold uppercase tracking-[0.1em] text-text-dim hover:border-gold/20 hover:text-gold-light disabled:opacity-40">★ Promote Master</button>}</>}{canRole && member.role === 'Master' && isAdmin && <button onClick={() => changeRole('Elder')} className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-[14px] font-bold uppercase tracking-[0.1em] text-text-dim hover:border-gold/20 hover:text-gold-light disabled:opacity-40">↓ Demote to Elder</button>}{canRole && isAdmin && member.role !== 'Admin' && <button onClick={() => changeRole('Admin')} className="rounded-lg border border-red-400/20 bg-red-400/[0.04] px-3 py-2 text-[14px] font-bold uppercase tracking-[0.1em] text-red-300 hover:bg-red-400/10 disabled:opacity-40">⚠ Make Admin</button>}{canRole && isAdmin && member.role === 'Admin' && <button onClick={() => changeRole('Master')} className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-[14px] font-bold uppercase tracking-[0.1em] text-text-dim hover:border-gold/20 hover:text-gold-light disabled:opacity-40">↓ Demote Admin</button>}{canReset && resetMemberPassword && <button onClick={() => setResetTarget(member)} className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-[14px] font-bold uppercase tracking-[0.1em] text-text-dim hover:border-gold/20 hover:text-gold-light disabled:opacity-40">🔑 Reset Password</button>}</div></div>}
           <div className="mt-5 flex flex-wrap justify-between gap-2">{canRemove ? <button onClick={remove} className="rounded-lg border border-red-400/20 bg-red-400/[0.04] px-3 py-2 text-[14px] font-bold uppercase tracking-[0.1em] text-red-300 hover:bg-red-400/10 disabled:opacity-40">Remove Member</button> : <span />}</div>
-          <div className="mt-5 flex justify-end gap-2"><button onClick={onClose} className="rounded-lg border border-white/10 px-4 py-2 text-xs text-text-dim">Cancel</button><button onClick={save} disabled={saving || !isStaff} className="btn-gold text-xs px-5 py-2.5">{saving ? 'Saving...' : 'Save Changes'}</button></div>
+          <div className="mt-5 flex justify-end gap-2"><button onClick={onClose} className="aa-btn">Cancel</button><button onClick={save} disabled={saving || !isStaff} className="btn-gold text-xs px-5 py-2.5">{saving ? 'Saving...' : 'Save Changes'}</button></div>
         </div>
       </div>
       {resetTarget && <ResetPasswordModal ctx={resetPasswordCtx} member={resetTarget} onClose={() => setResetTarget(null)} />}
@@ -469,12 +468,12 @@ function CoinDecayModal({ ctx, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-4"
+      className="fixed inset-0 z-[90] flex items-center justify-center aa-scrim p-3 sm:p-4"
       onMouseDown={e => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="flex w-full max-w-2xl max-h-[88vh] flex-col overflow-hidden rounded-2xl border border-gold/20 bg-[#0a0b0d] shadow-[0_35px_100px_rgba(0,0,0,.8)]">
+      <div className="flex w-full max-w-2xl max-h-[88vh] flex-col overflow-hidden rounded-2xl border border-gold/20 aa-modal">
         <div className="border-b border-white/[.07] p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -624,7 +623,7 @@ function CoinDecayModal({ ctx, onClose }) {
           )}
         </div>
 
-        <div className="border-t border-white/[.07] bg-[#090a0c] p-4 sm:p-5">
+        <div className="border-t border-white/[.07] aa-modal-foot p-4 sm:p-5">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <div className="text-[11px] font-black uppercase tracking-[.14em] text-text-dim">
@@ -699,15 +698,15 @@ function ActivityLogPanel({
     const target = targetName(log, allMembers)
 
     return (
-      <div key={String(log?.id)} className="p-5 sm:p-6">
+      <div key={String(log?.id)} className="aa-log px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-start">
-          <div className="w-full shrink-0 md:w-44">
+          <div className="aa-who w-full shrink-0 md:w-48">
             <div className="font-mono text-[13px] text-text-dim">{formatDate(log?.createdAt)}</div>
             <div className="mt-1 text-[14px] font-bold text-gold-light">{safeText(log?.actorName) || 'Unknown Staff'}</div>
             <div className="text-[12px] uppercase tracking-wider text-text-dim">{safeText(log?.actorRole)}</div>
           </div>
           <div className="min-w-0 flex-1">
-            <div className={`text-[13px] font-bold ${actionTone(log?.action)}`}>
+            <div className={`text-[15px] font-bold ${actionTone(log?.action)}`}>
               {safeText(log?.action) || 'Unknown Action'}
               <span className="ml-1 text-[13px] font-normal text-text-dim">· {safeText(log?.entityType) || 'System'}</span>
             </div>
@@ -781,18 +780,18 @@ function ActivityLogPanel({
         <div className="text-[13px] text-text-dim">{filteredLogs.length.toLocaleString()} matching · {logs.length.toLocaleString()} loaded</div>
       </div>
 
-      <div className="rounded-2xl border border-white/[.07] bg-[#090807]/80 p-3 sm:p-4">
+      <div className="aa-card rounded-2xl p-3 sm:p-4">
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1.5fr)_minmax(160px,1fr)_minmax(160px,1fr)_auto]">
           <input value={logSearch} onChange={e => setLogSearch(e.target.value)} className="input h-11 w-full px-4 text-[13px]" placeholder="🔍 Search action, member, staff, or details..." />
           <select value={actionFilter} onChange={e => setActionFilter(e.target.value)} className="input h-11 w-full px-4 text-[13px]"><option value="all">All Actions</option>{actions.slice(1).map(value => <option key={value}>{value}</option>)}</select>
           <select value={entityFilter} onChange={e => setEntityFilter(e.target.value)} className="input h-11 w-full px-4 text-[13px]"><option value="all">All Areas</option>{entities.slice(1).map(value => <option key={value}>{value}</option>)}</select>
-          <button type="button" onClick={loadLogs} disabled={loading || busy} className="h-11 rounded-lg border border-white/[.08] bg-white/[.02] px-4 text-[12px] font-bold uppercase tracking-[.1em] text-text-dim hover:border-gold/20 hover:text-gold-light disabled:opacity-40">Refresh</button>
+          <button type="button" onClick={loadLogs} disabled={loading || busy} className="aa-btn h-11">↻ Refresh</button>
         </div>
-        {canDelete && <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/[.07] bg-[#090807]/80 px-3 py-2.5"><button type="button" onClick={toggleSelectAll} disabled={!visibleIds.length || busy} className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-[12px] font-bold uppercase tracking-[0.1em] text-text-dim hover:border-gold/20 hover:text-gold-light disabled:opacity-40">{allVisibleSelected ? 'Deselect All Matching' : 'Select All Matching'}</button><span className="text-[12px] text-text-dim">{selectedIds.length} selected</span><button type="button" onClick={deleteSelected} disabled={!selectedIds.length || busy} className="control-btn danger ml-auto">Delete Selected</button><button type="button" onClick={deleteAllLogs} disabled={!logs.length || busy} className="rounded-lg border border-red-400/20 bg-red-400/[0.04] px-3 py-2 text-[12px] font-bold uppercase tracking-[0.1em] text-red-300 hover:bg-red-400/10 disabled:opacity-40">Delete All Logs</button></div>}
+        {canDelete && <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/[.07] bg-black/20 px-3 py-2.5"><button type="button" onClick={toggleSelectAll} disabled={!visibleIds.length || busy} className="aa-btn">{allVisibleSelected ? 'Deselect All Matching' : 'Select All Matching'}</button><span className="text-[12px] text-text-dim">{selectedIds.length} selected</span><button type="button" onClick={deleteSelected} disabled={!selectedIds.length || busy} className="aa-btn aa-btn-red ml-auto">Delete Selected</button><button type="button" onClick={deleteAllLogs} disabled={!logs.length || busy} className="aa-btn aa-btn-red">Delete All Logs</button></div>}
         {error && <div className="mt-3 rounded-xl border border-red-400/20 bg-red-400/[.04] px-4 py-3 text-[13px] text-red-300">{error}</div>}
       </div>
 
-      <div className="mt-3 overflow-hidden rounded-xl border border-white/[.07] bg-[#090807]/80">
+      <div className="aa-card mt-3 overflow-hidden rounded-2xl">
         {loading ? <div className="px-4 py-12 text-center text-[13px] text-text-dim">Loading activity...</div> : paginatedLogs.length === 0 ? <div className="px-4 py-12 text-center text-[13px] text-text-dim">No activity entries found.</div> : <div className="divide-y divide-white/[.055]">{paginatedLogs.map(renderLog)}</div>}
         {filteredLogs.length > 0 && <div className="flex flex-col gap-3 border-t border-white/[.07] px-4 py-4 sm:flex-row sm:items-center sm:justify-between"><div className="text-[12px] text-text-dim">Showing {(logPage - 1) * LOGS_PER_PAGE + 1}–{Math.min(logPage * LOGS_PER_PAGE, filteredLogs.length)} of {filteredLogs.length}</div><div className="flex items-center gap-1.5"><button type="button" onClick={() => setLogPage(p => Math.max(1, p - 1))} disabled={logPage <= 1} className="rounded-lg border border-white/[.08] px-3 py-2 text-[12px] font-bold text-text-dim disabled:opacity-35">← Prev</button><span className="min-w-[72px] text-center text-[12px] font-bold text-gold-light">Page {logPage} / {logTotalPages}</span><button type="button" onClick={() => setLogPage(p => Math.min(logTotalPages, p + 1))} disabled={logPage >= logTotalPages} className="rounded-lg border border-white/[.08] px-3 py-2 text-[12px] font-bold text-text-dim disabled:opacity-35">Next →</button></div></div>}
       </div>
@@ -948,28 +947,29 @@ export default function AdminAuditLog({ ctx }) {
     finally { setBusy(false) }
   }
 
-  if (!canView) return <div className="flex min-h-[50vh] items-center justify-center"><section className="w-full max-w-md rounded-2xl border border-red-400/15 bg-[#0b0a09]/90 p-6 text-center"><div className="text-3xl">🔒</div><h1 className="mt-3 font-spectral text-xl font-bold text-text-bright">Restricted Area</h1><p className="mt-1.5 text-[13px] leading-relaxed text-text-dim">Staff Control Center is available only to Admin, Master, and Elder.</p></section></div>
+  if (!canView) return <div className="flex min-h-[50vh] items-center justify-center"><section className="w-full max-w-md rounded-2xl border border-red-400/15 aa-card p-6 text-center"><div className="text-3xl">🔒</div><h1 className="mt-3 font-spectral text-xl font-bold text-text-bright">Restricted Area</h1><p className="mt-1.5 text-[13px] leading-relaxed text-text-dim">Staff Control Center is available only to Admin, Master, and Elder.</p></section></div>
 
   return (
-    <div className="w-full min-w-0 max-w-full space-y-7 pb-12">
-      <section className="relative overflow-hidden rounded-2xl border border-gold/20 bg-[#0b0a09]/90 shadow-[0_18px_60px_rgba(0,0,0,.28)]">
+    <div className="aa-root w-full min-w-0 max-w-full space-y-4 pb-10">
+      <style>{AA_STYLES}</style>
+      <section className="aa-glass aa-hero relative overflow-hidden rounded-[22px]">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/70 to-transparent" />
-        <div className="relative p-5 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative px-4 py-4 sm:px-6 sm:py-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="mb-2 flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-gold-bright" /><span className="text-[13px] font-bold uppercase tracking-[.22em] text-gold-dim">Clan Administration</span></div>
               <h1 className="font-spectral text-2xl font-bold text-text-bright sm:text-3xl">Staff Control Center</h1>
               <p className="mt-1.5 text-[14px] leading-6 text-text-dim">Manage members, Power, Coins, accounts, and staff activity from one place.</p>
             </div>
-            <div className="rounded-lg border border-gold/15 bg-gold/[.035] px-3 py-2 text-right"><div className="text-[14px] font-bold uppercase tracking-wider text-text-dim">Signed in as</div><div className="mt-0.5 text-[14px] font-bold text-gold-light">{currentUser?.role}</div></div>
+            <div className="aa-badge flex items-center gap-3 rounded-2xl px-4 py-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold/[.12] text-[15px] font-bold text-gold-light">{String(currentUser?.name || currentUser?.role || '?').charAt(0).toUpperCase()}</span><div><div className="text-[11px] font-bold uppercase tracking-[.12em] text-text-dim">Signed in as</div><div className="text-[14px] font-bold text-gold-light">{currentUser?.role}</div></div></div>
           </div>
         </div>
       </section>
 
-      <nav className="sticky top-3 z-20 rounded-2xl border border-white/[.08] bg-[#0a0b0d]/95 p-1.5 shadow-[0_14px_40px_rgba(0,0,0,.28)] backdrop-blur-md">
+      <nav className="aa-glass sticky top-[72px] z-20 rounded-2xl p-1.5 md:top-[82px]">
         <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
           {[['quick','✦','Quick Actions'],['members','⚔','Members'],['coins','🪙','Coins'],['activity','☷','Activity Log']].map(([value, icon, label]) => (
-            <button key={value} type="button" onClick={() => setActiveTab(value)} className={`rounded-xl px-3 py-3 text-[12px] font-black uppercase tracking-[.1em] transition ${activeTab === value ? 'border border-gold/25 bg-gold/[.08] text-gold-light' : 'border border-transparent text-text-dim hover:bg-white/[.03] hover:text-white'}`}>
+            <button key={value} type="button" onClick={() => setActiveTab(value)} aria-selected={activeTab === value} className="aa-tab rounded-xl px-3 py-2.5 text-[13px] font-bold">
               <span className="mr-1.5">{icon}</span>{label}
             </button>
           ))}
@@ -983,46 +983,42 @@ export default function AdminAuditLog({ ctx }) {
             <p className="mt-1 text-[13px] leading-5 text-text-dim">Common administrative controls, organized so the action you need is easy to find.</p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <ActionCard icon="＋" title="Add Member" description="Create a new clan character and account with the standard starting setup.ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ" button="Add Member" onClick={() => setShowAddMember(true)} />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <ActionCard icon="＋" title="Add Member" description="Create a new clan character and account with the standard starting setup." button="Add Member" onClick={() => setShowAddMember(true)} />
             <ActionCard icon="⚔" title="Manage Members" description="Search members and open a focused panel for profile, Power, Coins, and account controls." button="Open Members" onClick={() => setActiveTab('members')} />
             <ActionCard icon="🪙" title="Coin Management" description="Apply the 25% Coin Decay tool to selected members or review Coin controls." button="Manage Coins" onClick={() => setShowCoinDecay(true)} />
             <ActionCard icon="☷" title="Activity Log" description="Review administrative actions with search, filters, pagination, and live updates." button="Open Activity" onClick={() => setActiveTab('activity')} />
           </div>
         </section>
 
-        <section className="mt-6">
-          <div className="mb-4">
+        <section className="mt-5">
+          <div className="mb-3">
             <div className="text-[12px] font-black uppercase tracking-[.2em] text-red-300/80">Danger Zone</div>
             <p className="mt-1 text-[13px] leading-5 text-text-dim">These actions make permanent changes. Review the warning carefully before confirming.</p>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="flex h-full flex-col rounded-2xl border border-red-400/15 bg-red-400/[.025] p-5">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-400/15 bg-red-400/[.06] text-lg">⚠</div>
+          <div className={`grid gap-3 ${canDelete ? 'lg:grid-cols-2' : ''}`}>
+            <div className="aa-card aa-danger flex flex-col gap-3 rounded-2xl p-4 sm:flex-row sm:items-center">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-400/25 bg-red-400/[.08] text-lg">⚠</div>
                 <div className="min-w-0">
-                  <div className="text-[14px] font-black text-red-200">Reset All Coins</div>
-                  <p className="mt-1 text-[13px] leading-5 text-text-dim">Set every member's Coins to 0. This includes all roles and cannot be undone from the website.</p>
+                  <div className="text-[15px] font-bold text-red-200">Reset All Coins</div>
+                  <p className="mt-0.5 text-[13px] leading-5 text-text-dim">Set every member's Coins to 0. This includes all roles and cannot be undone from the website.</p>
                 </div>
               </div>
-              <div className="mt-auto pt-5">
-                <button type="button" onClick={() => { setResetText(''); setShowResetCoins(true) }} className="w-full rounded-xl border border-red-400/20 bg-red-400/[.05] px-4 py-3 text-[13px] font-black uppercase tracking-[.1em] text-red-300 transition hover:bg-red-400/10">Reset All Coins</button>
-              </div>
+              <button type="button" onClick={() => { setResetText(''); setShowResetCoins(true) }} className="aa-btn aa-btn-red shrink-0 sm:w-auto">Reset All Coins</button>
             </div>
 
             {canDelete && (
-              <div className="flex h-full flex-col rounded-2xl border border-red-400/15 bg-red-400/[.025] p-5">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-400/15 bg-red-400/[.06] text-lg">☷</div>
+              <div className="aa-card aa-danger flex flex-col gap-3 rounded-2xl p-4 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-400/25 bg-red-400/[.08] text-lg">☷</div>
                   <div className="min-w-0">
-                    <div className="text-[14px] font-black text-red-200">Delete Audit History</div>
-                    <p className="mt-1 text-[13px] leading-5 text-text-dim">Permanently remove the administrative activity history. This cannot be undone.</p>
+                    <div className="text-[15px] font-bold text-red-200">Delete Audit History</div>
+                    <p className="mt-0.5 text-[13px] leading-5 text-text-dim">Permanently remove the administrative activity history. This cannot be undone.</p>
                   </div>
                 </div>
-                <div className="mt-auto pt-5">
-                  <button type="button" onClick={deleteAllLogs} disabled={busy || !logs.length} className="w-full rounded-xl border border-red-400/20 bg-red-400/[.05] px-4 py-3 text-[13px] font-black uppercase tracking-[.1em] text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-40">Delete Audit History</button>
-                </div>
+                <button type="button" onClick={deleteAllLogs} disabled={busy || !logs.length} className="aa-btn aa-btn-red shrink-0 sm:w-auto">Delete Audit History</button>
               </div>
             )}
           </div>
@@ -1031,8 +1027,8 @@ export default function AdminAuditLog({ ctx }) {
 
       {activeTab === 'members' && <section id="staff-member-list">
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><div className="text-[12px] font-black uppercase tracking-[.2em] text-text-dim">Member Management</div><div className="mt-1 text-[13px] text-text-dim">Search first. Open a focused control panel only when you need it.</div></div><div className="text-[14px] text-text-dim">{visibleMembers.length} shown</div></div>
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row"><input className="input h-12 min-w-0 flex-1 px-4 text-[14px]" placeholder="🔍 Search member, username, class, or role..." value={search} onChange={e => setSearch(e.target.value)} /><button onClick={() => setShowAddMember(true)} className="btn-gold shrink-0 px-4 text-[14px]">＋ Add Member</button></div>
-        <div className="grid gap-2">{visibleMembers.slice(0, 50).map(member => <div key={member.id} className="flex flex-col gap-3 rounded-2xl border border-white/[.08] bg-[#0c0d10] p-4 sm:flex-row sm:items-center"><div className="flex min-w-0 flex-1 items-center gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gold/10 bg-gold/[.035] text-sm">{member.cls === 'Archer' ? '🏹' : member.cls === 'Warlord' ? '🛡' : member.cls === 'Skald' ? '♫' : member.cls === 'Volva' ? '✦' : member.cls === 'Rune Fighter' ? 'ᚱ' : '⚔'}</div><div className="min-w-0"><div className="truncate text-[14px] font-bold text-white">{member.name}</div><div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[14px] uppercase tracking-wider text-text-dim">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row"><input className="input h-12 min-w-0 flex-1 px-4 text-[14px]" placeholder="🔍 Search member, username, class, or role..." value={search} onChange={e => setSearch(e.target.value)} /><button onClick={() => setShowAddMember(true)} className="aa-btn aa-btn-gold shrink-0 px-5">＋ Add Member</button></div>
+        <div className="grid gap-2 xl:grid-cols-2">{visibleMembers.slice(0, 50).map(member => <div key={member.id} className="aa-card aa-row flex flex-col gap-3 rounded-2xl px-4 py-3 sm:flex-row sm:items-center"><div className="flex min-w-0 flex-1 items-center gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gold/10 bg-gold/[.035] text-sm">{member.cls === 'Archer' ? '🏹' : member.cls === 'Warlord' ? '🛡' : member.cls === 'Skald' ? '♫' : member.cls === 'Volva' ? '✦' : member.cls === 'Rune Fighter' ? 'ᚱ' : '⚔'}</div><div className="min-w-0"><div className="truncate text-[14px] font-bold text-white">{member.name}</div><div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[12.5px] text-text-dim">
   <span className={`shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-bold tracking-[.08em] ${
     member.role === 'Master'
       ? 'border-gold/25 bg-gold/[.07] text-gold-light'
@@ -1041,9 +1037,9 @@ export default function AdminAuditLog({ ctx }) {
         : 'border-white/[.08] bg-white/[.025] text-text-dim'
   }`}>{member.role}</span>
   <span className="truncate">· {member.cls || '—'} · Lv. {member.character_level || member.level || 1}</span>
-</div></div></div><div className="grid grid-cols-2 gap-2 text-right sm:flex sm:items-center"><div><div className="text-[13px] uppercase tracking-wider text-text-dim">Power</div><div className="font-mono text-[13px] font-bold text-gold-light">{formatNumber(member.power)}</div></div><div><div className="text-[13px] uppercase tracking-wider text-text-dim">Coins</div><div className={`font-mono text-[13px] font-bold ${
+</div></div></div><div className="grid grid-cols-2 gap-2 text-right sm:flex sm:items-center sm:gap-4"><div><div className="text-[11px] font-bold uppercase tracking-wider text-text-dim">Power</div><div className="font-mono text-[13px] font-bold text-gold-light">{formatNumber(member.power)}</div></div><div><div className="text-[11px] font-bold uppercase tracking-wider text-text-dim">Coins</div><div className={`font-mono text-[13px] font-bold ${
   Number(member.coins || 0) === 0 ? 'text-text-dim/45' : 'text-text-bright'
-}`}>{formatNumber(member.coins)}</div></div><button onClick={() => setSelectedMember(member)} className="col-span-2 rounded-lg border border-gold/20 bg-gold/[.04] px-4 py-2 text-[14px] font-bold uppercase tracking-wider text-gold-light hover:bg-gold/[.09] sm:col-span-1">Manage</button></div></div>)}{visibleMembers.length > 50 && <div className="py-3 text-center text-[14px] text-text-dim">Showing first 50 results. Use search to find a specific member.</div>}{visibleMembers.length === 0 && <div className="rounded-xl border border-white/[.07] bg-[#0b0c0f] py-10 text-center text-[13px] text-text-dim">No members found.</div>}</div>
+}`}>{formatNumber(member.coins)}</div></div><button onClick={() => setSelectedMember(member)} className="aa-btn aa-btn-gold col-span-2 sm:col-span-1 sm:ml-2">Manage</button></div></div>)}{visibleMembers.length > 50 && <div className="py-3 text-center text-[14px] text-text-dim">Showing first 50 results. Use search to find a specific member.</div>}{visibleMembers.length === 0 && <div className="rounded-xl border border-white/[.07] aa-card py-10 text-center text-[13px] text-text-dim">No members found.</div>}</div>
       </section>}
 
       {activeTab === 'coins' && <section>
@@ -1090,8 +1086,117 @@ export default function AdminAuditLog({ ctx }) {
       {showAddMember && <AddMemberModal ctx={ctx} onClose={() => { setShowAddMember(false); ctx.reloadMembers?.() }} />}
       {selectedMember && <ManageMemberModal ctx={ctx} member={selectedMember} onClose={() => { setSelectedMember(null); ctx.reloadMembers?.() }} />}
       {showCoinDecay && <CoinDecayModal ctx={ctx} onClose={() => { setShowCoinDecay(false); ctx.reloadMembers?.() }} />}
-      {showResetCoins && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"><div className="w-full max-w-md rounded-2xl border border-red-400/25 bg-[#0b0a09] p-5 shadow-[0_35px_100px_rgba(0,0,0,.8)]"><div className="text-3xl">⚠️</div><h2 className="mt-2 font-spectral text-xl font-bold text-red-200">Reset All Coins</h2><p className="mt-2 text-[13px] leading-relaxed text-text-dim">This permanently sets <strong className="text-white">ALL {allMembers.length} members</strong> to 0 Coins. There is no undo or website backup.</p><div className="mt-4 text-[14px] font-bold uppercase tracking-wider text-text-dim">Type RESET to continue</div><input autoFocus className="input mt-2 w-full h-12 text-center font-mono text-lg font-bold tracking-[.25em]" value={resetText} onChange={e => setResetText(e.target.value.toUpperCase())} onKeyDown={e => { if (e.key === 'Enter') resetAllCoins() }} placeholder="RESET" /><div className="mt-4 flex justify-end gap-2"><button onClick={() => setShowResetCoins(false)} className="rounded-lg border border-white/10 px-4 py-2 text-xs text-text-dim">Cancel</button><button onClick={resetAllCoins} disabled={resetText !== 'RESET' || busy} className="rounded-lg border border-red-400/30 bg-red-400/[.08] px-4 py-2 text-[13px] font-bold uppercase text-red-200 disabled:opacity-35">{busy ? 'Resetting...' : 'Confirm Reset'}</button></div></div></div>}
+      {showResetCoins && <div className="fixed inset-0 z-[100] flex items-center justify-center aa-scrim p-3 sm:p-4"><div className="w-full max-w-md rounded-2xl border border-red-400/25 aa-modal p-5"><div className="text-3xl">⚠️</div><h2 className="mt-2 font-spectral text-xl font-bold text-red-200">Reset All Coins</h2><p className="mt-2 text-[13px] leading-relaxed text-text-dim">This permanently sets <strong className="text-white">ALL {allMembers.length} members</strong> to 0 Coins. There is no undo or website backup.</p><div className="mt-4 text-[14px] font-bold uppercase tracking-wider text-text-dim">Type RESET to continue</div><input autoFocus className="input mt-2 w-full h-12 text-center font-mono text-lg font-bold tracking-[.25em]" value={resetText} onChange={e => setResetText(e.target.value.toUpperCase())} onKeyDown={e => { if (e.key === 'Enter') resetAllCoins() }} placeholder="RESET" /><div className="mt-4 flex justify-end gap-2"><button onClick={() => setShowResetCoins(false)} className="aa-btn">Cancel</button><button onClick={resetAllCoins} disabled={resetText !== 'RESET' || busy} className="rounded-lg border border-red-400/30 bg-red-400/[.08] px-4 py-2 text-[13px] font-bold uppercase text-red-200 disabled:opacity-35">{busy ? 'Resetting...' : 'Confirm Reset'}</button></div></div></div>}
     </div>
   )
 
 }
+
+const AA_STYLES = `
+  .aa-root .text-text-dim { color: #c4b8a3; }
+
+  /* Header + tab bar: glass. Everything repeated: solid (fast on phones, readable over art) */
+  .aa-root .aa-glass {
+    background:
+      radial-gradient(120% 70% at 0% 0%, rgba(255,255,255,.07) 0%, transparent 50%),
+      linear-gradient(160deg, rgba(34,28,22,.62) 0%, rgba(12,10,8,.72) 100%);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid rgba(255,255,255,.08);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 22px 60px -30px rgba(0,0,0,.85);
+  }
+  @media (max-width: 767px) {
+    .aa-root .aa-glass { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  }
+  .aa-root .aa-hero::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(55% 120% at 100% 0%, rgba(212,175,55,.12) 0%, transparent 60%);
+  }
+  .aa-root .aa-badge { border: 1px solid rgba(212,175,55,.25); background: linear-gradient(160deg, rgba(212,175,55,.1), rgba(0,0,0,.2)); }
+
+  .aa-root .aa-card {
+    background: linear-gradient(160deg, rgba(30,25,20,.92) 0%, rgba(13,11,9,.95) 100%);
+    border-color: rgba(255,255,255,.08);
+    border-width: 1px; border-style: solid;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 16px 40px -28px rgba(0,0,0,.9);
+  }
+  .aa-root .aa-card.aa-danger {
+    border-color: rgba(248,113,113,.22);
+    background: linear-gradient(160deg, rgba(48,20,20,.88) 0%, rgba(16,10,9,.95) 100%);
+  }
+  .aa-root .aa-lift { transition: transform .2s ease, border-color .2s ease; }
+  @media (hover: hover) {
+    .aa-root .aa-lift:hover { transform: translateY(-2px); border-color: rgba(212,175,55,.3); }
+    .aa-root .aa-lift.aa-danger:hover { border-color: rgba(248,113,113,.4); }
+  }
+  .aa-root .aa-row { transition: border-color .15s ease, background .15s ease; }
+  .aa-root .aa-row:hover { border-color: rgba(212,175,55,.25); }
+
+  /* Clickable tiles (Quick Actions / Coins) */
+  .aa-root .aa-tile {
+    background: linear-gradient(160deg, rgba(30,25,20,.92) 0%, rgba(13,11,9,.95) 100%);
+    border: 1px solid rgba(255,255,255,.08);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 16px 40px -28px rgba(0,0,0,.9);
+    transition: transform .2s ease, border-color .2s ease, background .2s ease;
+  }
+  .aa-root .aa-tile:hover { border-color: rgba(212,175,55,.38); background: linear-gradient(160deg, rgba(40,32,22,.94) 0%, rgba(15,12,9,.96) 100%); }
+  .aa-root .aa-tile:active { transform: scale(.985); }
+  .aa-root .aa-tile:focus-visible { outline: 2px solid rgba(212,175,55,.6); outline-offset: 2px; }
+  .aa-root .aa-tile-danger { border-color: rgba(248,113,113,.22); background: linear-gradient(160deg, rgba(48,20,20,.88) 0%, rgba(16,10,9,.95) 100%); }
+  .aa-root .aa-tile-danger:hover { border-color: rgba(248,113,113,.45); background: linear-gradient(160deg, rgba(58,22,22,.9) 0%, rgba(18,10,9,.96) 100%); }
+
+  /* Tabs */
+  .aa-root .aa-tab { color: #c4b8a3; border: 1px solid transparent; transition: background .2s ease, color .2s ease; }
+  .aa-root .aa-tab:hover { color: #fff; background: rgba(255,255,255,.04); }
+  .aa-root .aa-tab[aria-selected="true"] {
+    color: #1a1206;
+    background: linear-gradient(180deg, #f2d27a 0%, #d4af37 55%, #b38d2a 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 6px 18px -8px rgba(212,175,55,.6);
+  }
+
+  /* Buttons */
+  .aa-root .aa-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 40px; padding: 0 16px; border-radius: 11px;
+    border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04);
+    font-size: 13px; font-weight: 700; color: #e6dcc8;
+    transition: background .2s ease, border-color .2s ease, color .2s ease;
+  }
+  .aa-root .aa-btn:hover:not(:disabled) { border-color: rgba(212,175,55,.35); color: #fff; }
+  .aa-root .aa-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .aa-root .aa-btn-gold { border-color: rgba(212,175,55,.35); background: rgba(212,175,55,.1); color: #f2cc60; }
+  .aa-root .aa-btn-gold:hover:not(:disabled) { background: rgba(212,175,55,.18); color: #f6dc8f; }
+  .aa-root .aa-btn-red { border-color: rgba(248,113,113,.3); background: rgba(248,113,113,.08); color: #fca5a5; }
+  .aa-root .aa-btn-red:hover:not(:disabled) { background: rgba(248,113,113,.15); color: #fecaca; border-color: rgba(248,113,113,.5); }
+  .aa-root .aa-x { border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04); color: #c4b8a3; }
+  .aa-root .aa-x:hover { color: #fff; border-color: rgba(255,255,255,.22); }
+
+  /* Inputs */
+  .aa-root .input {
+    border-radius: 12px; border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.32);
+    color: #f4ebd9; transition: border-color .2s ease, box-shadow .2s ease; color-scheme: dark;
+  }
+  .aa-root .input:focus { outline: none; border-color: rgba(212,175,55,.5); box-shadow: 0 0 0 3px rgba(212,175,55,.12); }
+  .aa-root select.input option { background: #14100c; color: #f4ebd9; }
+  /* Number fields in the member forms had no size of their own */
+  .aa-root input.input.font-mono:not(.text-center) { height: 48px; padding: 0 16px; font-size: 14px; }
+
+  /* Activity log */
+  .aa-root .aa-log { transition: background .15s ease; }
+  .aa-root .aa-log:hover { background: rgba(255,255,255,.02); }
+  @media (min-width: 768px) {
+    .aa-root .aa-who { border-right: 1px solid rgba(255,255,255,.06); padding-right: 14px; }
+  }
+
+  /* Modals */
+  .aa-root .aa-scrim { background: rgba(0,0,0,.74); }
+  @media (min-width: 768px) { .aa-root .aa-scrim { background: rgba(0,0,0,.62); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); } }
+  .aa-root .aa-modal {
+    background: linear-gradient(170deg, #1a1511 0%, #0c0a08 100%);
+    border-color: rgba(212,175,55,.22);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 30px 90px rgba(0,0,0,.85);
+    animation: aa-in .22s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .aa-root .aa-modal-foot { background: rgba(14,11,9,.96); }
+  @keyframes aa-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+`
