@@ -1,12 +1,80 @@
-import React, { useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import SupportModal from './SupportModal'
+import { useClanSchedule } from './clanSchedule'
 
 // Footer credit.
 const CREATOR_NAME = 'Ryuji / MiaKhalifa'
-const CONTACT_LABEL = 'just message me'
 const CONTACT_URL = 'https://discord.com/users/703295552821133324'
 
-const TABS = ['login', 'info']
-const FEATURES = ['Attendance', 'Members', 'Auctions', 'Leaderboard']
+const TABS = ['login', 'schedule', 'info']
+const FEATURES = ['Attendance', 'Members', 'Auctions', 'Schedule', 'Leaderboard']
+
+/* ── Clan schedule helpers (server time GMT+8, no daylight saving) ── */
+const SERVER_OFFSET_MS = 8 * 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
+const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
+const RUN_MIN = { boss: 15, battle: 60, treasure: 60, sanctuary: 60, arena: 60 }
+const EVENT_TYPES = {
+  boss:      { color: '#f87171', label: 'World Boss' },
+  battle:    { color: '#60a5fa', label: 'Battle' },
+  treasure:  { color: '#facc15', label: 'Treasure' },
+  sanctuary: { color: '#4ade80', label: 'Sanctuary' },
+  arena:     { color: '#c084fc', label: 'Arena' },
+}
+const typeMeta = (t) => EVENT_TYPES[t] || EVENT_TYPES.battle
+const SHOW_LOCAL = new Date().getTimezoneOffset() !== -480
+
+const toMin = (hhmm) => {
+  const [h, m] = String(hhmm).split(':').map(Number)
+  return (h || 0) * 60 + (m || 0)
+}
+
+// Server day of week + the UTC timestamp of server midnight today.
+function serverToday(now) {
+  const shifted = now + SERVER_OFFSET_MS
+  return { dow: new Date(shifted).getUTCDay(), dayStart: now - (shifted % DAY_MS) }
+}
+
+// Start/end of an event on the server day `k` days from today.
+function eventWindow(e, dayStart, k) {
+  const start = dayStart + k * DAY_MS + toMin(e.time) * 60000
+  const range = String(e.subtitle || '').match(/(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/)
+  let mins = RUN_MIN[e.type] || 60
+  if (range) {
+    const span = toMin(range[2]) - toMin(range[1])
+    if (span > 0) mins = span
+  }
+  return { start, end: start + mins * 60000 }
+}
+
+function nextEvent(schedule, now) {
+  const { dow, dayStart } = serverToday(now)
+  for (let k = 0; k < 8; k++) {
+    const d = (dow + k) % 7
+    const list = [...(schedule?.[d] || [])].sort((a, b) => a.time.localeCompare(b.time))
+    for (const e of list) {
+      const w = eventWindow(e, dayStart, k)
+      if (w.end > now) return { ...e, dow: d, ...w, live: w.start <= now }
+    }
+  }
+  return null
+}
+
+function formatIn(ms) {
+  const mins = Math.max(0, Math.round(ms / 60000))
+  if (mins < 1) return 'now'
+  const d = Math.floor(mins / 1440)
+  const h = Math.floor((mins % 1440) / 60)
+  const m = mins % 60
+  if (d) return `${d}d ${h}h`
+  if (h) return `${h}h ${m}m`
+  return `${m}m`
+}
+
+const localClock = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+
 
 // Original art-deco crest: shield, twin chevrons, diamond crown.
 function CrestIcon(props) {
@@ -28,6 +96,38 @@ export default function Login({ ctx }) {
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [capsOn, setCapsOn] = useState(false)
+
+  // Schedule (read once, cached by clanSchedule.js) + a local clock for countdowns.
+  const schedule = useClanSchedule(ctx?.supabase)
+  const [now, setNow] = useState(() => Date.now())
+  const [scheduleDay, setScheduleDay] = useState(() => serverToday(Date.now()).dow)
+  const [showDonate, setShowDonate] = useState(false)
+
+  useEffect(() => {
+    const id = setInterval(() => { if (!document.hidden) setNow(Date.now()) }, 30000)
+    return () => clearInterval(id)
+  }, [])
+
+  const today = serverToday(now)
+  const upcoming = useMemo(() => nextEvent(schedule, now), [schedule, now])
+  const dayEvents = useMemo(() => {
+    const k = (scheduleDay - today.dow + 7) % 7
+    return [...(schedule?.[scheduleDay] || [])]
+      .sort((a, b) => a.time.localeCompare(b.time))
+      .map((e, i) => {
+        const w = eventWindow(e, today.dayStart, k)
+        const isNext = !!upcoming && upcoming.dow === scheduleDay && upcoming.time === e.time && upcoming.name === e.name
+        return { ...e, ...w, key: `${scheduleDay}-${e.time}-${i}`, done: k === 0 && w.end <= now, live: w.start <= now && w.end > now, isNext }
+      })
+  }, [schedule, scheduleDay, today.dow, today.dayStart, now, upcoming])
+
+  const openSchedule = (dow) => {
+    if (typeof dow === 'number') setScheduleDay(dow)
+    setTab('schedule')
+  }
+
+  const closeDonate = useCallback(() => setShowDonate(false), [])
+
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -72,6 +172,35 @@ export default function Login({ ctx }) {
 
   const clearError = () => {
     if (error) setError('')
+  }
+
+  const renderNext = (variant) => {
+    if (!upcoming) return null
+    const meta = typeMeta(upcoming.type)
+    const sub = upcoming.boss || upcoming.subtitle
+    const isToday = upcoming.dow === today.dow && upcoming.start - today.dayStart < DAY_MS
+    return (
+      <button
+        type="button"
+        className={`pb-next pb-next--${variant}`}
+        style={{ '--ev': meta.color }}
+        onClick={() => openSchedule(upcoming.dow)}
+        aria-label={`Next clan event: ${upcoming.name}. Open the schedule.`}
+      >
+        <span className="pb-next-top">
+          <span className="pb-next-kicker">{upcoming.live ? 'Happening now' : 'Next clan event'}</span>
+          <span className={`pb-pill${upcoming.live ? ' pb-pill--live' : ''}`}>
+            {upcoming.live ? 'Live' : `in ${formatIn(upcoming.start - now)}`}
+          </span>
+        </span>
+        <span className="pb-next-name" style={{ display: 'block' }}>{upcoming.name}</span>
+        {variant === 'brand' && sub && <span className="pb-next-sub" style={{ display: 'block' }}>{sub}</span>}
+        <span className="pb-next-when" style={{ display: 'block' }}>
+          <b>{isToday ? 'Today' : DAY_SHORT[upcoming.dow]} {upcoming.time}</b> GMT+8
+          {SHOW_LOCAL && <> · <em>{localClock(upcoming.start)} your time</em></>}
+        </span>
+      </button>
+    )
   }
 
   return (
@@ -350,7 +479,7 @@ export default function Login({ ctx }) {
         /* Segmented glass control */
         .pb-tabs {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(3, 1fr);
           gap: 4px;
           padding: 4px;
           margin-bottom: 16px;
@@ -667,35 +796,170 @@ export default function Login({ ctx }) {
         }
 
         /* ---------- Footer ---------- */
+        /* Plain text footer, same as the Layout footer */
         .pb-footer {
-          padding: 8px 18px;
-          border-radius: 18px;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: center;
+          gap: 2px 8px;
+          max-width: 840px;
+          padding: 4px 16px;
           text-align: center;
           color: var(--ash);
-          font-size: 11.5px;
-          line-height: 1.5;
-          background: var(--glass-fill);
-          border: 1px solid var(--glass-line-soft);
-          box-shadow: var(--glass-hi);
-          backdrop-filter: var(--glass-blur-sm);
-          -webkit-backdrop-filter: var(--glass-blur-sm);
+          font-size: 12px;
+          line-height: 1.6;
         }
 
-        .pb-footer p { margin: 0; }
-        .pb-footer strong { color: var(--bone); font-weight: 600; }
+        .pb-footer strong { color: var(--brass-hi); font-weight: 600; }
+        .pb-footer-dot { color: rgba(255,255,255,0.2); }
 
-        .pb-footer a {
+        .pb-footer a,
+        .pb-footer-link {
+          padding: 0;
+          border: 0;
+          background: none;
           color: var(--brass-hi);
-          text-decoration: none;
-          border-bottom: 1px dashed var(--brass);
+          font: inherit;
+          font-weight: 600;
+          text-decoration: underline;
+          text-decoration-color: rgba(201,162,75,0.35);
+          text-underline-offset: 2px;
+          cursor: pointer;
+          transition: color .2s ease;
         }
 
-        .pb-footer a:hover { border-bottom-style: solid; }
+        .pb-footer a:hover,
+        .pb-footer-link:hover { color: #f2cc60; }
+        .pb-footer-link:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 2px; }
+
+        /* ---------- Next event (brand side + mobile strip) ---------- */
+        .pb-next {
+          display: block;
+          width: 100%;
+          margin-top: 14px;
+          padding: 10px 12px;
+          border-radius: 14px;
+          text-align: left;
+          color: var(--bone);
+          font-family: inherit;
+          cursor: pointer;
+          background: linear-gradient(135deg, rgba(0,0,0,0.28), rgba(0,0,0,0.14));
+          border: 1px solid var(--glass-line-soft);
+          border-left: 3px solid var(--ev, var(--brass));
+          transition: border-color .2s ease, background .2s ease;
+        }
+        .pb-next:hover { background: linear-gradient(135deg, rgba(0,0,0,0.34), rgba(201,162,75,0.08)); }
+        .pb-next:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 2px; }
+        .pb-next-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .pb-next-kicker { color: var(--ash); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+        .pb-next-name { margin-top: 3px; font-size: 13.5px; font-weight: 700; line-height: 1.25; }
+        .pb-next-sub { margin-top: 1px; color: var(--ash); font-size: 11.5px; line-height: 1.35; }
+        .pb-next-when { margin-top: 5px; color: var(--ash); font-size: 11px; font-variant-numeric: tabular-nums; }
+        .pb-next-when b { color: var(--bone); font-weight: 600; }
+        .pb-next-when em { color: var(--brass-hi); font-style: normal; }
+
+        .pb-pill {
+          flex: none;
+          padding: 2px 8px;
+          border-radius: 999px;
+          font-size: 10.5px;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+          color: var(--brass-hi);
+          background: rgba(201,162,75,0.14);
+          border: 1px solid rgba(201,162,75,0.35);
+        }
+        .pb-pill--live { color: #86efac; background: rgba(74,222,128,0.12); border-color: rgba(74,222,128,0.4); }
+        .pb-pill--live::before {
+          content: '';
+          display: inline-block;
+          width: 6px; height: 6px;
+          margin-right: 5px;
+          border-radius: 50%;
+          background: #4ade80;
+          vertical-align: 1px;
+          animation: pb-pulse 1.4s ease-in-out infinite;
+        }
+        .pb-pill--done { color: var(--ash); background: rgba(255,255,255,0.04); border-color: var(--glass-line-soft); }
+        @keyframes pb-pulse { 50% { opacity: .35; } }
+
+        .pb-next--strip { display: none; margin: 0 0 12px; padding: 8px 10px; }
+
+        /* ---------- Schedule tab ---------- */
+        .pb-days {
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          gap: 4px;
+          margin-bottom: 8px;
+        }
+        .pb-day {
+          position: relative;
+          padding: 6px 0;
+          border-radius: 10px;
+          border: 1px solid var(--glass-line-soft);
+          background: rgba(0,0,0,0.2);
+          color: var(--ash);
+          font-family: inherit;
+          font-size: 11.5px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: color .2s ease, background .2s ease, border-color .2s ease;
+        }
+        .pb-day:hover { color: var(--bone); }
+        .pb-day.is-today { color: var(--brass-hi); }
+        .pb-day.is-today::after {
+          content: '';
+          position: absolute;
+          left: 50%; bottom: 2px;
+          width: 4px; height: 4px;
+          margin-left: -2px;
+          border-radius: 50%;
+          background: var(--brass-hi);
+        }
+        .pb-day[aria-pressed="true"] {
+          color: #1a140b;
+          background: linear-gradient(180deg, rgba(246,224,160,0.95), rgba(201,162,75,0.92));
+          border-color: rgba(255,240,200,0.55);
+        }
+        .pb-day[aria-pressed="true"]::after { background: #1a140b; }
+        .pb-day:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 2px; }
+
+        .pb-events {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          max-height: 236px;
+          margin: 0;
+          padding: 0;
+          overflow-y: auto;
+          list-style: none;
+        }
+        .pb-event {
+          display: grid;
+          grid-template-columns: 50px minmax(0, 1fr) auto;
+          align-items: center;
+          gap: 10px;
+          padding: 7px 10px;
+          border-radius: 12px;
+          background: rgba(0,0,0,0.2);
+          border: 1px solid var(--glass-line-soft);
+          border-left: 3px solid var(--ev);
+        }
+        .pb-event.is-next { background: linear-gradient(135deg, rgba(201,162,75,0.12), rgba(0,0,0,0.2)); border-color: rgba(201,162,75,0.35); border-left-color: var(--ev); }
+        .pb-event.is-done { opacity: .5; }
+        .pb-event-time { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+        .pb-event-time small { display: block; color: var(--brass-hi); font-size: 10px; font-weight: 600; }
+        .pb-event-name { overflow: hidden; font-size: 12.5px; font-weight: 600; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+        .pb-event-sub { overflow: hidden; color: var(--ash); font-size: 11px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+        .pb-event-sub i { color: var(--ev); font-style: normal; font-weight: 600; }
+        .pb-empty { padding: 14px; border-radius: 12px; color: var(--ash); font-size: 12px; text-align: center; background: rgba(0,0,0,0.2); border: 1px dashed var(--glass-line-soft); }
+
 
         /* ---------- No backdrop-filter support: solid fallback ---------- */
         @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
           .pb-card { background: rgba(24,20,17,0.94); }
-          .pb-footer, .pb-features li, .pb-info-card { background: rgba(34,29,25,0.92); }
+          .pb-features li, .pb-info-card { background: rgba(34,29,25,0.92); }
         }
 
         /* ---------- Mobile ---------- */
@@ -729,12 +993,20 @@ export default function Login({ ctx }) {
           .pb-tagline, .pb-features, .pb-brand-foot, .pb-watermark { display: none; }
 
           .pb-main { padding: 16px 16px 20px; }
+
+          .pb-next--brand { display: none; }
+          .pb-next--strip { display: block; }
+          .pb-day { font-size: 10.5px; }
+          .pb-footer { flex-direction: column; gap: 2px; }
+          .pb-footer-dot { display: none; }
+
         }
 
         @media (prefers-reduced-motion: reduce) {
           .pb-card, .pb-panel { animation: none; }
           .pb-spinner { animation-duration: 1.6s; }
           .pb-input, .pb-submit, .pb-tab, .pb-reveal, .pb-input-icon, .pb-link { transition: none; }
+          .pb-pill--live::before { animation: none; }
         }
       `}</style>
 
@@ -766,6 +1038,7 @@ export default function Login({ ctx }) {
                   <li key={f}>{f}</li>
                 ))}
               </ul>
+              {renderNext('brand')}
             </div>
 
             <div className="pb-brand-foot">
@@ -776,6 +1049,7 @@ export default function Login({ ctx }) {
 
           {/* Form side */}
           <section className="pb-main">
+            {tab !== 'schedule' && renderNext('strip')}
             <div className="pb-tabs" role="tablist" aria-label="Portal sections" onKeyDown={handleTabKey}>
               <button
                 type="button"
@@ -792,6 +1066,18 @@ export default function Login({ ctx }) {
               <button
                 type="button"
                 role="tab"
+                id="pb-tab-schedule"
+                aria-selected={tab === 'schedule'}
+                aria-controls="pb-panel-schedule"
+                tabIndex={tab === 'schedule' ? 0 : -1}
+                className="pb-tab"
+                onClick={() => setTab('schedule')}
+              >
+                Schedule
+              </button>
+              <button
+                type="button"
+                role="tab"
                 id="pb-tab-info"
                 aria-selected={tab === 'info'}
                 aria-controls="pb-panel-info"
@@ -799,7 +1085,7 @@ export default function Login({ ctx }) {
                 className="pb-tab"
                 onClick={() => setTab('info')}
               >
-                About the portal
+                About
               </button>
             </div>
 
@@ -927,6 +1213,83 @@ export default function Login({ ctx }) {
                 <p className="pb-note">No account yet? Ask your Master to create one for you.</p>
               </div>
 
+              {/* Schedule */}
+              <div
+                className={`pb-panel${tab === 'schedule' ? ' is-active' : ''}`}
+                role="tabpanel"
+                id="pb-panel-schedule"
+                aria-labelledby="pb-tab-schedule"
+                aria-hidden={tab !== 'schedule'}
+              >
+                <div>
+                  <h2 className="pb-title">Clan schedule</h2>
+                  <div className="pb-status">
+                    <p className="pb-lede">
+                      Server time (GMT+8){SHOW_LOCAL ? ', with your local time in gold.' : '.'}
+                    </p>
+                  </div>
+
+                  <div className="pb-days" role="group" aria-label="Pick a day">
+                    {DAY_ORDER.map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        className={`pb-day${d === today.dow ? ' is-today' : ''}`}
+                        aria-pressed={scheduleDay === d}
+                        aria-label={`${DAY_SHORT[d]}${d === today.dow ? ' (today)' : ''}`}
+                        onClick={() => setScheduleDay(d)}
+                      >
+                        {DAY_SHORT[d]}
+                      </button>
+                    ))}
+                  </div>
+
+                  {dayEvents.length === 0 ? (
+                    <div className="pb-empty">No clan events on {DAY_SHORT[scheduleDay]}.</div>
+                  ) : (
+                    <ul className="pb-events">
+                      {dayEvents.map((e) => {
+                        const meta = typeMeta(e.type)
+                        const sub = e.boss || e.subtitle
+                        return (
+                          <li
+                            key={e.key}
+                            className={`pb-event${e.isNext ? ' is-next' : ''}${e.done ? ' is-done' : ''}`}
+                            style={{ '--ev': meta.color }}
+                          >
+                            <div className="pb-event-time">
+                              {e.time}
+                              {SHOW_LOCAL && <small>{localClock(e.start)}</small>}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <div className="pb-event-name" title={e.name}>{e.name}</div>
+                              <div className="pb-event-sub" title={sub || meta.label}>
+                                <i>{meta.label}</i>{sub ? ` · ${sub}` : ''}
+                              </div>
+                            </div>
+                            {e.live ? (
+                              <span className="pb-pill pb-pill--live">Live</span>
+                            ) : e.done ? (
+                              <span className="pb-pill pb-pill--done">Done</span>
+                            ) : e.isNext ? (
+                              <span className="pb-pill">in {formatIn(e.start - now)}</span>
+                            ) : (
+                              <span />
+                            )}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+
+                <p className="pb-note">
+                  <button type="button" className="pb-link" onClick={() => setTab('login')}>
+                    Back to sign in
+                  </button>
+                </p>
+              </div>
+
               {/* Info */}
               <div
                 className={`pb-panel${tab === 'info' ? ' is-active' : ''}`}
@@ -974,22 +1337,25 @@ export default function Login({ ctx }) {
         </main>
 
         <footer className="pb-footer">
-          <p>
+          <span>
             Built by <strong>{CREATOR_NAME}</strong>
-          </p>
-          <p>
-            Support is always appreciated, never expected.{' '}
-            {CONTACT_URL ? (
-              <a href={CONTACT_URL} target="_blank" rel="noopener noreferrer">
-                {CONTACT_LABEL}
-              </a>
-            ) : (
-              <strong>{CONTACT_LABEL}</strong>
-            )}
+          </span>
+          <span className="pb-footer-dot" aria-hidden="true">•</span>
+          <span>
+            Support is always appreciated, never expected. If you'd like to help,{' '}
+            <a href={CONTACT_URL} target="_blank" rel="noopener noreferrer">
+              message me on Discord
+            </a>
+            {' '}or{' '}
+            <button type="button" className="pb-footer-link" onClick={() => setShowDonate(true)}>
+              donate WEMIX
+            </button>
             .
-          </p>
+          </span>
         </footer>
       </div>
+
+      {showDonate && <SupportModal onClose={closeDonate} discordUrl={CONTACT_URL} />}
     </div>
   )
 }
