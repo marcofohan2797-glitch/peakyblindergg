@@ -13,6 +13,15 @@ const AWAKENING_OPTIONS = [
   { value: 1, label: 'Stage 1' },
 ]
 
+// Server-side coin functions live in coin_safety.sql.
+function coinRpcError(error, fallback) {
+  const message = String(error?.message || '')
+  if (error?.code === 'PGRST202' || /could not find the function|schema cache/i.test(message)) {
+    return new Error('Run coin_safety.sql in Supabase once, then try again.')
+  }
+  return new Error(message || fallback)
+}
+
 async function recordAdminActivity(supabase, currentUser, action, entityType = 'Admin CP', entityId = null, details = {}) {
   if (!supabase || !currentUser || !STAFF_ROLES.has(currentUser.role)) return false
   try {
@@ -251,6 +260,8 @@ function ManageMemberModal({ ctx, member, onClose }) {
   const { updateMember, deleteMember, resetMemberPowerCooldown, resetMemberPassword, addToast, currentUser, supabase } = ctx
   const [saving, setSaving] = useState(false)
   const [resetTarget, setResetTarget] = useState(null)
+  // Coins when the editor opened. Saving only changes coins if they are still this amount.
+  const [baseCoins, setBaseCoins] = useState(() => Number(member.coins || 0))
   const [form, setForm] = useState({
     cls: member.cls || 'Berserker', profile_grade: member.profile_grade === 'Mythical' ? 'Mythic' : (member.profile_grade || 'Legendary'),
     level: member.character_level || member.level || 1, awakening: Number(member.awakening_stage) || 0,
@@ -277,13 +288,39 @@ function ManageMemberModal({ ctx, member, onClose }) {
     }
     if (form.cls !== (member.cls || 'Berserker')) { updates.cls = form.cls; addChange('cls', 'Class', member.cls || 'Berserker', form.cls) }
     if (form.profile_grade !== (member.profile_grade === 'Mythical' ? 'Mythic' : (member.profile_grade || 'Legendary'))) { updates.profile_grade = form.profile_grade; addChange('profile_grade', 'Card Grade', member.profile_grade === 'Mythical' ? 'Mythic' : (member.profile_grade || 'Legendary'), form.profile_grade) }
-    if (coins !== Number(member.coins || 0)) { updates.coins = coins; addChange('coins', 'Coins', Number(member.coins || 0), coins, coins - Number(member.coins || 0)) }
+    const coinsChanged = coins !== baseCoins
+    if (coinsChanged) addChange('coins', 'Coins', baseCoins, coins, coins - baseCoins)
     if (level !== Number(member.character_level || member.level || 1)) { updates.character_level = level; addChange('character_level', 'Character Level', Number(member.character_level || member.level || 1), level, level - Number(member.character_level || member.level || 1)) }
     if (awakening !== Number(member.awakening_stage || 0)) { updates.awakening_stage = awakening; addChange('awakening_stage', 'Awakening', Number(member.awakening_stage || 0), awakening, awakening - Number(member.awakening_stage || 0)) }
     if (power !== Number(member.power || 0)) { updates.power = power; updates.power_updated_at = new Date().toISOString(); updates.power_next_update_at = new Date(Date.now() + POWER_COOLDOWN_MS).toISOString(); addChange('power', 'Power', Number(member.power || 0), power, power - Number(member.power || 0)) }
-    if (!Object.keys(updates).length) { onClose(); return }
+    if (!Object.keys(updates).length && !coinsChanged) { onClose(); return }
     setSaving(true)
-    const ok = await updateMember(member.id, updates)
+    if (coinsChanged) {
+      // The server checks the coins are still `baseCoins` before changing them,
+      // so a bid or reward made while this editor was open is never overwritten.
+      const { error } = await supabase.rpc('staff_set_member_coins', {
+        p_target_id: Number(member.id),
+        p_actor_id: Number(currentUser?.id),
+        p_actor_password: String(currentUser?.password || ''),
+        p_expected_coins: baseCoins,
+        p_new_coins: coins,
+      })
+      if (error) {
+        setSaving(false)
+        const changed = String(error.message || '').match(/COINS_CHANGED:(-?\d+)/)
+        if (changed) {
+          const now = Number(changed[1]) || 0
+          setBaseCoins(now)
+          setForm(prev => ({ ...prev, coins: now }))
+          addToast(`${member.name}'s coins changed to ${now.toLocaleString()} while you were editing (a bid, refund or reward). Nothing was saved. Check the amount and save again.`, 'red', 'Coins Changed')
+        } else {
+          addToast(coinRpcError(error, 'Could not update coins.').message, 'red', 'Update Failed')
+        }
+        return
+      }
+      setBaseCoins(coins)
+    }
+    const ok = Object.keys(updates).length ? await updateMember(member.id, updates) : true
     setSaving(false)
     if (ok) {
       await recordAdminActivity(supabase, currentUser, 'Update Member', 'Member', member.id, {
@@ -931,16 +968,27 @@ export default function AdminAuditLog({ ctx }) {
     if (resetText !== 'RESET') return
     setBusy(true)
     try {
-      const results = await Promise.all(allMembers.map(member => supabase.from('members').update({ coins: 0 }).eq('id', member.id)))
-      const failed = results.find(result => result.error)
-      if (failed?.error) throw failed.error
+      // One server step: either every member is reset or nobody is.
+      const { data: affected, error: resetError } = await supabase.rpc('staff_reset_all_coins', {
+        p_actor_id: Number(currentUser?.id),
+        p_actor_password: String(currentUser?.password || ''),
+      })
+      if (resetError) {
+        const running = String(resetError.message || '').match(/ACTIVE_BIDS:(\d+)/)
+        if (running) {
+          const n = Number(running[1]) || 0
+          throw new Error(`${n} auction${n === 1 ? ' is' : 's are'} still running with bids. End or delete ${n === 1 ? 'it' : 'them'} first, otherwise the bidders' reserved coins come back after the reset. Nothing was reset.`)
+        }
+        throw coinRpcError(resetError, 'Failed to reset all Coins.')
+      }
+      const membersAffected = Number(affected) || allMembers.length
       await ctx.reloadMembers?.()
       await recordAdminActivity(supabase, currentUser, 'Reset All Coins', 'Coins', null, {
-        members_affected: allMembers.length,
+        members_affected: membersAffected,
         coins_after: 0,
         scope: 'All members including staff',
       })
-      ctx.addToast?.(`All Coins were permanently reset to 0 for ${allMembers.length} members.`, 'red', 'Coins Reset')
+      ctx.addToast?.(`All Coins were permanently reset to 0 for ${membersAffected} members.`, 'red', 'Coins Reset')
       setShowResetCoins(false)
       setResetText('')
     } catch (err) { ctx.addToast?.(err?.message || 'Failed to reset all Coins.', 'red', 'Coin Reset Failed') }
