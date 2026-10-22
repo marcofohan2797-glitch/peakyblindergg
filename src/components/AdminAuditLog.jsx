@@ -714,11 +714,89 @@ function CoinDecayModal({ ctx, onClose }) {
   )
 }
 
+// Auction id / amount / winner taken from an "Auction Win" log entry.
+function getAuctionWin(log) {
+  if (log?.action !== 'Auction Win') return null
+  const d = log.details || {}
+  const auctionId = d.auction_id ?? log.entityId
+  if (auctionId == null || auctionId === '') return null
+  return {
+    auctionId: String(auctionId),
+    auctionName: d.auction_name || 'Auction',
+    memberName: d.member_name || 'the winner',
+    amount: Number(d.winning_amount ?? d.amount ?? 0) || 0,
+  }
+}
+
+function RefundWinModal({ ctx, win, onClose, onDone }) {
+  const { supabase, currentUser, addToast } = ctx
+  const [reason, setReason] = useState('Item not delivered')
+  const [busy, setBusy] = useState(false)
+
+  const confirm = async () => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const { data, error } = await supabase.rpc('staff_refund_auction_win', {
+        p_auction_id: Number(win.auctionId),
+        p_actor_id: Number(currentUser?.id),
+        p_actor_password: String(currentUser?.password || ''),
+        p_reason: reason.trim() || null,
+      })
+      if (error) {
+        const message = String(error.message || '')
+        if (/ALREADY_REFUNDED/.test(message)) throw new Error('This auction win was already refunded.')
+        if (error.code === 'PGRST202' || /could not find the function|schema cache/i.test(message)) {
+          throw new Error('Run auction_refunds.sql in Supabase once, then try again.')
+        }
+        throw new Error(message || 'Could not refund this auction win.')
+      }
+      const amount = Number(data?.amount ?? win.amount) || 0
+      addToast?.(`${data?.member_name || win.memberName} got ${formatNumber(amount)} coins back (now ${formatNumber(data?.coins_after)}).`, 'gold', 'Auction Refunded')
+      await onDone?.()
+      onClose()
+    } catch (err) {
+      addToast?.(err?.message || 'Could not refund this auction win.', 'red', 'Refund Failed')
+      await onDone?.()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center aa-scrim p-3 sm:p-4" onMouseDown={e => { if (e.target === e.currentTarget && !busy) onClose() }}>
+      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-gold/20 aa-modal" role="dialog" aria-modal="true" aria-labelledby="refund-win-title">
+        <div className="border-b border-white/[.07] px-5 py-4">
+          <div className="text-[11px] font-black uppercase tracking-[.2em] text-gold-light">Auction Refund</div>
+          <h2 id="refund-win-title" className="mt-1 font-spectral text-xl font-bold text-white">Refund {win.memberName}?</h2>
+        </div>
+        <div className="space-y-3 px-5 py-4">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 rounded-xl border border-white/[.07] bg-black/20 px-4 py-3 text-[13px]">
+            <span className="text-text-dim">Auction</span><span className="truncate font-semibold text-text-bright" title={win.auctionName}>{win.auctionName}</span>
+            <span className="text-text-dim">Winner</span><span className="font-semibold text-gold-light">{win.memberName}</span>
+            <span className="text-text-dim">Refund</span><span className="font-bold text-green-300">+{formatNumber(win.amount)} coins</span>
+          </div>
+          <label className="block">
+            <span className="mb-1.5 block text-[12px] font-bold uppercase tracking-wider text-gold-light">Reason</span>
+            <input value={reason} onChange={e => setReason(e.target.value)} maxLength={120} className="input h-11 w-full px-4 text-[13px]" placeholder="e.g. Item not delivered" />
+          </label>
+          <p className="text-[12px] leading-5 text-text-dim">The server gives back exactly what {win.memberName} paid for this auction. Each auction can only be refunded once, and the refund is saved in the Activity Log.</p>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-white/[.07] px-5 py-3">
+          <button type="button" onClick={onClose} disabled={busy} className="aa-btn">Cancel</button>
+          <button type="button" onClick={confirm} disabled={busy} className="btn-gold px-5 py-2.5 text-xs">{busy ? 'Refunding...' : `Refund ${formatNumber(win.amount)} coins`}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ActivityLogPanel({
   logs, allMembers, filteredLogs, paginatedLogs, loading, error, logSearch, setLogSearch,
   actionFilter, setActionFilter, entityFilter, setEntityFilter, actions, entities, canDelete,
   busy, selectedIds, visibleIds, allVisibleSelected, toggleSelectAll, deleteSelected, deleteAllLogs,
   supabase, currentUser, setLogs, setError, logPage, logTotalPages, setLogPage, loadLogs, LOGS_PER_PAGE,
+  refunds = new Map(), canRefund = false, onRefund,
 }) {
   const safeText = value => {
     if (value === null || value === undefined) return ''
@@ -784,6 +862,31 @@ function ActivityLogPanel({
                 </div>
               </details>
             )}
+            {(() => {
+              const win = getAuctionWin(log)
+              if (!win) return null
+              const refund = refunds.get(win.auctionId)
+              if (refund) {
+                return (
+                  <div className="mt-2 inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-lg border border-green-400/20 bg-green-400/[.05] px-2.5 py-1.5 text-[12px] text-green-200">
+                    <span aria-hidden="true">↩</span>
+                    <strong>Refunded {formatNumber(refund.amount)} coins</strong>
+                    <span className="text-text-dim">· by {safeText(refund.refunded_by_name) || 'staff'} · {formatDate(refund.refunded_at)}{refund.reason ? ` · ${safeText(refund.reason)}` : ''}</span>
+                  </div>
+                )
+              }
+              if (!canRefund || !(win.amount > 0)) return null
+              return (
+                <button
+                  type="button"
+                  onClick={() => onRefund?.(win)}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-gold/25 bg-gold/[.06] px-2.5 py-1.5 text-[12px] font-bold text-gold-light transition hover:border-gold/45 hover:bg-gold/[.12] focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  title="Item not delivered? Give the winner their coins back."
+                >
+                  <span aria-hidden="true">↩</span> Refund {formatNumber(win.amount)} coins
+                </button>
+              )
+            })()}
           </div>
           {canDelete && (
             <button
@@ -841,6 +944,8 @@ export default function AdminAuditLog({ ctx }) {
   const allMembers = ctx?.allMembers || []
   const canView = STAFF_ROLES.has(currentUser?.role)
   const canDelete = currentUser?.role === 'Admin' || currentUser?.role === 'Master'
+  // Same roles as the server check in auction_refunds.sql.
+  const canRefund = currentUser?.role === 'Admin' || currentUser?.role === 'Master'
 
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -859,6 +964,20 @@ export default function AdminAuditLog({ ctx }) {
   const [logSearch, setLogSearch] = useState('')
   const [logPage, setLogPage] = useState(1)
   const LOGS_PER_PAGE = 50
+  const [refunds, setRefunds] = useState(() => new Map())
+  const [refundWin, setRefundWin] = useState(null)
+
+  // Which auction wins were already refunded (small table, read once per visit).
+  const loadRefunds = useCallback(async () => {
+    if (!canView || !supabase) return
+    const { data, error: refundError } = await supabase
+      .from('auction_win_refunds')
+      .select('auction_id,amount,reason,refunded_by_name,refunded_at')
+    if (refundError) { console.warn('Could not load auction refunds:', refundError.message); return }
+    setRefunds(new Map((data || []).map(row => [String(row.auction_id), row])))
+  }, [canView, supabase])
+
+  useEffect(() => { loadRefunds() }, [loadRefunds])
 
   const loadLogs = useCallback(async () => {
     if (!canView || !supabase) { setLoading(false); return }
@@ -1097,6 +1216,9 @@ export default function AdminAuditLog({ ctx }) {
 
       {activeTab === 'activity' && (
         <ActivityLogPanel
+          refunds={refunds}
+          canRefund={canRefund}
+          onRefund={setRefundWin}
           logs={logs}
           allMembers={allMembers}
           filteredLogs={filteredLogs}
@@ -1133,6 +1255,7 @@ export default function AdminAuditLog({ ctx }) {
 
       {showAddMember && <AddMemberModal ctx={ctx} onClose={() => { setShowAddMember(false); ctx.reloadMembers?.() }} />}
       {selectedMember && <ManageMemberModal ctx={ctx} member={selectedMember} onClose={() => { setSelectedMember(null); ctx.reloadMembers?.() }} />}
+      {refundWin && <RefundWinModal ctx={ctx} win={refundWin} onClose={() => setRefundWin(null)} onDone={async () => { await loadRefunds(); await ctx.reloadMembers?.() }} />}
       {showCoinDecay && <CoinDecayModal ctx={ctx} onClose={() => { setShowCoinDecay(false); ctx.reloadMembers?.() }} />}
       {showResetCoins && <div className="fixed inset-0 z-[100] flex items-center justify-center aa-scrim p-3 sm:p-4"><div className="w-full max-w-md rounded-2xl border border-red-400/25 aa-modal p-5"><div className="text-3xl">⚠️</div><h2 className="mt-2 font-spectral text-xl font-bold text-red-200">Reset All Coins</h2><p className="mt-2 text-[13px] leading-relaxed text-text-dim">This permanently sets <strong className="text-white">ALL {allMembers.length} members</strong> to 0 Coins. There is no undo or website backup.</p><div className="mt-4 text-[14px] font-bold uppercase tracking-wider text-text-dim">Type RESET to continue</div><input autoFocus className="input mt-2 w-full h-12 text-center font-mono text-lg font-bold tracking-[.25em]" value={resetText} onChange={e => setResetText(e.target.value.toUpperCase())} onKeyDown={e => { if (e.key === 'Enter') resetAllCoins() }} placeholder="RESET" /><div className="mt-4 flex justify-end gap-2"><button onClick={() => setShowResetCoins(false)} className="aa-btn">Cancel</button><button onClick={resetAllCoins} disabled={resetText !== 'RESET' || busy} className="rounded-lg border border-red-400/30 bg-red-400/[.08] px-4 py-2 text-[13px] font-bold uppercase text-red-200 disabled:opacity-35">{busy ? 'Resetting...' : 'Confirm Reset'}</button></div></div></div>}
     </div>
