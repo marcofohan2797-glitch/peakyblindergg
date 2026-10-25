@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useId } from 'react'
 import { createPortal } from 'react-dom'
+import {
+  useAttendanceRewards, saveAttendanceRewards, canEditRewards, normalizeRewards,
+  validateRewards, REWARD_EVENTS, DEFAULT_REWARDS, tierLabels,
+} from './attendanceRewards'
 
 const eventTypes = [
   'Inter-Server Battle',
@@ -89,41 +93,27 @@ const WEEKLY_EVENT_SESSIONS = [
   },
 ]
 
-/* Automatic attendance reward rules from the clan reward table.
-   Perfect Attendance is a separate weekly +150 bonus. */
-const ATTENDANCE_REWARDS = {
-  'Inter-Server Battle': {
-    base: 100,
-    bonuses: [5, 10, 15, 20],
-  },
-  'World Boss': {
-    base: 50,
-    bonuses: [3, 5, 10, 15],
-  },
-  'Clan Annihilation': {
-    base: 75,
-    bonuses: [5, 10, 15, 20],
-  },
-  "Sindri's Treasure Island": {
-    base: 75,
-    bonuses: [5, 10, 15, 20],
-  },
-  'Clan Sanctuary': {
-    base: 50,
-    bonuses: [3, 5, 10, 15],
-  },
-};
-
-const PERFECT_ATTENDANCE_BONUS = 150
+/* Attendance reward rules. Staff edit them in Reward Guide → Edit rewards
+   (saved in Supabase, see attendanceRewards.js). These values are replaced by
+   the saved table on every render via applyRewardRules(). */
+let ATTENDANCE_REWARDS = DEFAULT_REWARDS.events
+let GP_TIERS = DEFAULT_REWARDS.gpTiers
+let PERFECT_ATTENDANCE_BONUS = DEFAULT_REWARDS.perfectBonus
 const PERFECT_ATTENDANCE_REQUIRED_SESSIONS = WEEKLY_EVENT_SESSIONS.length
+
+function applyRewardRules(rules) {
+  ATTENDANCE_REWARDS = rules?.events || DEFAULT_REWARDS.events
+  GP_TIERS = rules?.gpTiers || DEFAULT_REWARDS.gpTiers
+  PERFECT_ATTENDANCE_BONUS = Number(rules?.perfectBonus ?? DEFAULT_REWARDS.perfectBonus) || 0
+}
 
 function getAttendanceGpBonus(power, event) {
   const gp = Number(power) || 0
   const reward = ATTENDANCE_REWARDS[event]
-  if (!reward || gp < 100000) return 0
-  if (gp < 150000) return reward.bonuses[0]
-  if (gp < 200000) return reward.bonuses[1]
-  if (gp < 250000) return reward.bonuses[2]
+  if (!reward || gp < GP_TIERS[0]) return 0
+  if (gp < GP_TIERS[1]) return reward.bonuses[0]
+  if (gp < GP_TIERS[2]) return reward.bonuses[1]
+  if (gp < GP_TIERS[3]) return reward.bonuses[2]
   return reward.bonuses[3]
 }
 
@@ -663,6 +653,56 @@ export default function Attendance({ ctx }) {
     members, setMembers, attendanceLogs, setAttendanceLogs,
     currentUser, addToast, supabase,
   } = ctx
+
+  // Editable reward table (Reward Guide → Edit rewards).
+  const { rules: rewardRules, meta: rewardMeta } = useAttendanceRewards(supabase)
+  applyRewardRules(rewardRules)
+  const canEditRewardTable = canEditRewards(currentUser)
+  const [editingRewards, setEditingRewards] = useState(false)
+  const [rewardDraft, setRewardDraft] = useState(null)
+  const [savingRewards, setSavingRewards] = useState(false)
+  const [rewardError, setRewardError] = useState('')
+  const rewardTiers = tierLabels(rewardRules.gpTiers)
+
+  const startEditRewards = () => {
+    setRewardDraft(normalizeRewards(rewardRules))
+    setRewardError('')
+    setEditingRewards(true)
+  }
+  const cancelEditRewards = () => {
+    setEditingRewards(false)
+    setRewardDraft(null)
+    setRewardError('')
+  }
+  const setDraftNumber = (path, value) => {
+    setRewardError('')
+    setRewardDraft(prev => {
+      if (!prev) return prev
+      const next = JSON.parse(JSON.stringify(prev))
+      const n = value === '' ? '' : Number(value)
+      if (path[0] === 'perfectBonus') next.perfectBonus = n
+      else if (path[0] === 'gpTiers') next.gpTiers[path[1]] = n
+      else if (path[1] === 'base') next.events[path[0]].base = n
+      else next.events[path[0]].bonuses[path[2]] = n
+      return next
+    })
+  }
+  const saveRewardTable = async () => {
+    if (!rewardDraft || savingRewards) return
+    const problem = validateRewards(rewardDraft)
+    if (problem) { setRewardError(problem); return }
+    setSavingRewards(true)
+    try {
+      await saveAttendanceRewards(supabase, currentUser, rewardDraft)
+      addToast('New attendance rewards are saved. They apply to attendance recorded from now on.', 'gold', 'Rewards Updated')
+      setEditingRewards(false)
+      setRewardDraft(null)
+    } catch (error) {
+      setRewardError(error?.message || 'Could not save the rewards.')
+    } finally {
+      setSavingRewards(false)
+    }
+  }
 
   const [selectedEvent, setSelectedEvent] = useState(eventTypes[0])
   const [selectedSessionId, setSelectedSessionId] = useState(WEEKLY_EVENT_SESSIONS[0].id)
@@ -1738,7 +1778,11 @@ export default function Attendance({ ctx }) {
             continue
           }
 
-          const reversedCoins = removedCount * PERFECT_ATTENDANCE_BONUS
+          // Take back what was actually given for that week (the bonus amount
+          // may have been changed in the reward table since then).
+          const reversedCoins = currentLog
+            .filter(entry => entry?.type === 'perfect_attendance_bonus' && entry?.weekKey === weekKey)
+            .reduce((sum, entry) => sum + (Number.isFinite(Number(entry?.coins)) ? Number(entry.coins) : PERFECT_ATTENDANCE_BONUS), 0)
           const newCoins = Math.max(0, Number(freshMember.coins || 0) - reversedCoins)
           const updatedMember = await updateMemberStaff(member.id, {
             coins: newCoins,
@@ -1993,7 +2037,7 @@ export default function Attendance({ ctx }) {
       if (openActionMenuId != null) { setOpenActionMenuId(null); return }
       if (showAttendanceExport) { setShowAttendanceExport(false); return }
       if (showPerfectAttendance) { if (!awardingPerfect) setShowPerfectAttendance(false); return }
-      if (showRewardGuide) { setShowRewardGuide(false); return }
+      if (showRewardGuide) { setShowRewardGuide(false); cancelEditRewards(); return }
       if (showEventSchedule) { setShowEventSchedule(false); return }
       if (showRecordModal) { if (!submitting) setShowRecordModal(false); return }
       if (showAddMissing) { if (!addingMissing) setShowAddMissing(false); return }
@@ -2074,7 +2118,7 @@ export default function Attendance({ ctx }) {
             <div className="text-[11px] font-bold uppercase tracking-[.14em] text-text-dim">Perfect Attendance</div>
             <div className="mt-0.5 truncate text-[13px] font-semibold text-text-bright">{qualifiedPerfectAttendance.length} qualified · 8/8 required</div>
           </div>
-          <span className="flex-shrink-0 whitespace-nowrap text-[13px] font-bold text-gold-bright">+150</span>
+          <span className="flex-shrink-0 whitespace-nowrap text-[13px] font-bold text-gold-bright">+{PERFECT_ATTENDANCE_BONUS}</span>
         </button>
 
         <button
@@ -2085,9 +2129,9 @@ export default function Attendance({ ctx }) {
         >
           <div className="mr-1 min-w-0 basis-full sm:basis-auto">
             <div className="text-[11px] font-bold uppercase tracking-[.14em] text-text-dim">Reward Guide</div>
-            <div className="text-[11px] text-text-dim">Click to view GP bonus criteria</div>
+            <div className="text-[11px] text-text-dim">{canEditRewardTable ? 'Click to view or edit rewards' : 'Click to view GP bonus criteria'}</div>
           </div>
-          {[['Battle', 100], ['Boss', 50], ['Annihilation', 75], ['Sindri', 75], ['Sanctuary', 50]].map(([name, base]) => (
+          {REWARD_EVENTS.map(({ event, short }) => [short, ATTENDANCE_REWARDS[event]?.base || 0]).map(([name, base]) => (
             <div key={name} className="flex-shrink-0 rounded-xl at-inset px-2.5 py-1.5">
               <span className="text-[11px] text-text-dim">{name}</span>
               <span className="ml-1.5 text-[11px] font-semibold text-text-bright">+{base}</span>
@@ -2404,7 +2448,7 @@ export default function Attendance({ ctx }) {
                     <span className="font-semibold text-text-bright">Attendance:</span> Base reward + GP bonus according to the member's GP tier.
                   </div>
                   <div className="rounded-xl at-inset at-inset-gold px-3 py-2.5 text-[12px] text-text-dim">
-                    <span className="font-semibold text-gold-light">Perfect Attendance:</span> Attend all 8 weekly sessions → <span className="font-sans font-bold text-gold-bright">+150 Coins</span>.
+                    <span className="font-semibold text-gold-light">Perfect Attendance:</span> Attend all {PERFECT_ATTENDANCE_REQUIRED_SESSIONS} weekly sessions → <span className="font-sans font-bold text-gold-bright">+{PERFECT_ATTENDANCE_BONUS} Coins</span>.
                   </div>
                 </div>
               </div>
@@ -2421,7 +2465,7 @@ export default function Attendance({ ctx }) {
           aria-modal="true"
           aria-label="Attendance reward guide"
           onMouseDown={e => {
-            if (e.target === e.currentTarget) setShowRewardGuide(false)
+            if (e.target === e.currentTarget && !savingRewards) { setShowRewardGuide(false); cancelEditRewards() }
           }}
         >
           <div className="w-full max-w-3xl max-h-[88vh] overflow-hidden at-glass at-modal relative rounded-[24px]">
@@ -2430,49 +2474,100 @@ export default function Attendance({ ctx }) {
                 <div className="text-[11px] font-bold uppercase tracking-[.12em] text-gold-dim">Attendance Rewards</div>
                 <h3 className="mt-1 font-spectral text-[1.3rem] font-bold leading-tight text-text-bright">Reward & GP Bonus Criteria</h3>
                 <p className="mt-1 text-[12px] leading-5 text-text-dim">
-                  Each attendance gives a base reward. Your GP determines the additional bonus.
+                  {editingRewards
+                    ? 'Change any number, then Save. New values apply to attendance recorded from now on.'
+                    : 'Each attendance gives a base reward. Your GP determines the additional bonus.'}
                 </p>
+                {!editingRewards && rewardMeta?.updatedBy && (
+                  <p className="mt-0.5 text-[11px] text-text-dim/80">
+                    Last changed by <span className="text-gold-light">{rewardMeta.updatedBy}</span>
+                    {rewardMeta.updatedAt ? ` · ${new Date(rewardMeta.updatedAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
+                  </p>
+                )}
               </div>
+              <div className="flex flex-shrink-0 items-center gap-1.5">
+                {canEditRewardTable && !editingRewards && (
+                  <button
+                    type="button"
+                    onClick={startEditRewards}
+                    className="rounded-full at-chip px-3 py-1.5 text-[12px] font-bold text-gold-light hover:border-gold/35"
+                  >
+                    ✎ Edit rewards
+                  </button>
+                )}
+                {editingRewards && (
+                  <>
+                    <button type="button" onClick={cancelEditRewards} disabled={savingRewards} className="rounded-full at-chip px-3 py-1.5 text-[12px] font-bold text-text-dim hover:text-text-bright disabled:opacity-40">Cancel</button>
+                    <button type="button" onClick={saveRewardTable} disabled={savingRewards} className="btn-gold min-h-8 px-3.5 text-[12px] font-bold disabled:opacity-50">{savingRewards ? 'Saving…' : 'Save'}</button>
+                  </>
+                )}
               <button
                 type="button"
-                onClick={() => setShowRewardGuide(false)}
+                onClick={() => { setShowRewardGuide(false); cancelEditRewards() }}
                 className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full at-chip text-text-dim hover:border-gold/30 hover:text-gold-light"
                 aria-label="Close reward guide"
               >
                 ×
               </button>
+              </div>
             </div>
 
             <div className="max-h-[68vh] overflow-y-auto p-4 sm:p-5">
+              {rewardError && (
+                <div className="mb-3 rounded-xl border border-red-400/25 bg-red-400/[.06] px-3 py-2 text-[12px] text-red-300" role="alert">{rewardError}</div>
+              )}
               <div className="overflow-x-auto rounded-2xl at-well">
                 <div className="min-w-[680px]">
                   <div className="grid grid-cols-[minmax(180px,1.5fr)_70px_repeat(4,minmax(88px,1fr))] items-center border-b border-white/[.07] bg-white/[.025] px-3 py-3 text-[11px] font-bold uppercase tracking-[.1em] text-text-dim sm:px-4">
                     <span>Event</span>
                     <span className="text-center">Base</span>
-                    <span className="text-center">100–150k</span>
-                    <span className="text-center">150–200k</span>
-                    <span className="text-center">200–250k</span>
-                    <span className="text-center">250k+</span>
+                    {editingRewards && rewardDraft
+                      ? [0, 1, 2, 3].map(i => (
+                          <label key={i} className="flex flex-col items-center gap-1 px-1">
+                            <span className="text-[10px] normal-case tracking-normal text-text-dim">{`GP ${i + 1} from`}</span>
+                            <input
+                              type="number" min="0" step="1000" inputMode="numeric"
+                              value={rewardDraft.gpTiers[i]}
+                              onChange={e => setDraftNumber(['gpTiers', i], e.target.value)}
+                              aria-label={`GP needed for bonus tier ${i + 1}`}
+                              className="input h-8 w-full max-w-[96px] px-2 text-center font-mono text-[12px]"
+                            />
+                          </label>
+                        ))
+                      : rewardTiers.map(label => <span key={label} className="text-center">{label}</span>)}
                   </div>
 
-                  {[
-                    ['Server Battle', 100, 5, 10, 15, 20],
-                    ['World Boss', 50, 3, 5, 10, 15],
-                    ['Clan Annihilation', 75, 5, 10, 15, 20],
-                    ["Sindri's Treasure Island", 75, 5, 10, 15, 20],
-                    ['Clan Sanctuary', 50, 3, 5, 10, 15],
-                  ].map(([event, base, b1, b2, b3, b4]) => (
-                    <div key={event} className="grid grid-cols-[minmax(180px,1.5fr)_70px_repeat(4,minmax(88px,1fr))] items-center border-b border-white/[.05] px-3 py-3 last:border-b-0 sm:px-4">
-                      <div>
-                        <div className="text-[12px] font-semibold text-text-bright">{event}</div>
-                        <div className="mt-0.5 text-[11px] text-text-dim">Per attendance</div>
+                  {REWARD_EVENTS.map(({ event, label }) => {
+                    const row = (editingRewards && rewardDraft ? rewardDraft : rewardRules).events[event]
+                    const cell = 'input h-8 w-full max-w-[72px] px-2 text-center font-mono text-[12px]'
+                    return (
+                      <div key={event} className={`grid grid-cols-[minmax(180px,1.5fr)_70px_repeat(4,minmax(88px,1fr))] items-center border-b border-white/[.05] px-3 last:border-b-0 sm:px-4 ${editingRewards ? 'py-2' : 'py-3'}`}>
+                        <div>
+                          <div className="text-[12px] font-semibold text-text-bright">{label}</div>
+                          <div className="mt-0.5 text-[11px] text-text-dim">Per attendance</div>
+                        </div>
+                        {editingRewards ? (
+                          <>
+                            <div className="flex justify-center">
+                              <input type="number" min="0" step="1" inputMode="numeric" value={row.base} onChange={e => setDraftNumber([event, 'base'], e.target.value)} aria-label={`${label} base reward`} className={`${cell} text-text-bright`} />
+                            </div>
+                            {row.bonuses.map((bonus, index) => (
+                              <div key={index} className="flex justify-center">
+                                <input type="number" min="0" step="1" inputMode="numeric" value={bonus} onChange={e => setDraftNumber([event, 'bonus', index], e.target.value)} aria-label={`${label} GP bonus tier ${index + 1}`} className={`${cell} text-gold-light`} />
+                              </div>
+                            ))}
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-center text-[12px] font-bold text-text-bright">+{row.base}</div>
+                            {row.bonuses.map((bonus, index) => (
+                              <div key={index} className="text-center text-[12px] font-semibold text-gold-light">+{bonus}</div>
+                            ))}
+                          </>
+                        )}
                       </div>
-                      <div className="text-center text-[12px] font-bold text-text-bright">+{base}</div>
-                      {[b1, b2, b3, b4].map((bonus, index) => (
-                        <div key={index} className="text-center text-[12px] font-semibold text-gold-light">+{bonus}</div>
-                      ))}
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
 
@@ -2486,8 +2581,15 @@ export default function Attendance({ ctx }) {
                 <div className="rounded-2xl at-inset at-inset-gold p-3">
                   <div className="text-[11px] font-bold uppercase tracking-[.12em] text-gold-dim">Perfect Attendance</div>
                   <p className="mt-1.5 text-[12px] leading-5 text-text-dim">
-                    Attend all <strong className="text-text-bright">8 scheduled sessions</strong> Tuesday–Saturday to qualify for the separate <strong className="text-gold-bright">+150 Coins</strong> weekly bonus.
+                    Attend all <strong className="text-text-bright">{PERFECT_ATTENDANCE_REQUIRED_SESSIONS} scheduled sessions</strong> Tuesday–Saturday to qualify for the separate <strong className="text-gold-bright">+{PERFECT_ATTENDANCE_BONUS} Coins</strong> weekly bonus.
                   </p>
+                  {editingRewards && rewardDraft && (
+                    <label className="mt-2 flex items-center gap-2 text-[12px] text-text-dim">
+                      Weekly bonus
+                      <input type="number" min="0" step="1" inputMode="numeric" value={rewardDraft.perfectBonus} onChange={e => setDraftNumber(['perfectBonus'], e.target.value)} aria-label="Perfect Attendance bonus" className="input h-8 w-24 px-2 text-center font-mono text-[12px] text-gold-bright" />
+                      coins
+                    </label>
+                  )}
                 </div>
               </div>
 
@@ -2576,7 +2678,7 @@ export default function Attendance({ ctx }) {
                 <div className="flex items-center gap-2">
                   <div className="rounded-xl at-inset at-inset-gold px-3 py-2 text-right">
                     <div className="text-[11px] font-bold uppercase tracking-[.12em] text-text-dim">Reward</div>
-                    <div className="mt-0.5 font-sans text-sm font-bold text-gold-bright">+150 Coins</div>
+                    <div className="mt-0.5 font-sans text-sm font-bold text-gold-bright">+{PERFECT_ATTENDANCE_BONUS} Coins</div>
                   </div>
                   <button type="button" onClick={() => setShowPerfectAttendance(false)} className="flex h-9 w-9 items-center justify-center rounded-full at-chip text-text-dim hover:border-gold/30 hover:text-gold-light" aria-label="Close">×</button>
                 </div>
@@ -2644,7 +2746,7 @@ export default function Attendance({ ctx }) {
                             )}
                           </div>
                           <div className="mt-2 flex items-center justify-between gap-2 sm:mt-0 sm:justify-end">
-                            <span className="font-sans text-sm font-bold text-gold-bright">{row.qualified ? '+150' : '—'}</span>
+                            <span className="font-sans text-sm font-bold text-gold-bright">{row.qualified ? `+${PERFECT_ATTENDANCE_BONUS}` : '—'}</span>
                             {isElder && row.qualified && !row.awarded && (
                               <button
                                 type="button"
@@ -2674,7 +2776,7 @@ export default function Attendance({ ctx }) {
                         disabled={awardingPerfect}
                         className="btn-gold min-h-9 px-3.5 text-[13px] font-bold disabled:opacity-40"
                       >
-                        {awardingPerfect ? 'Awarding…' : `Award +150 to All ${unawardedPerfectAttendance.length} Qualified`}
+                        {awardingPerfect ? 'Awarding…' : `Award +${PERFECT_ATTENDANCE_BONUS} to All ${unawardedPerfectAttendance.length} Qualified`}
                       </button>
                     )}
                     {weeklyPerfectAttendance.some(row => row.awarded) && (
