@@ -643,7 +643,7 @@ const CharacterArtwork = React.memo(function CharacterArtwork({ member, large = 
           alt={member?.cls || 'Character'}
           onFail={() => setPortraitFailed(true)}
           eager={large}
-          className="mb-portrait absolute inset-x-0 bottom-0 mx-auto h-[92%] w-auto max-w-none object-contain object-bottom"
+          className={`mb-portrait absolute inset-x-0 ${member?.cls === 'Assassin' ? 'bottom-[8%] h-[84%]' : 'bottom-0 h-[92%]'} mx-auto w-auto max-w-none object-contain object-bottom`}
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center font-spectral text-4xl font-bold text-white/80" aria-hidden="true">
