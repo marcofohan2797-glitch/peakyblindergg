@@ -24,6 +24,7 @@ const CLASS_META = {
   Skald:          { icon: '♫', file: 'skald' },
   Volva:          { icon: '✦', file: 'volva' },
   'Rune Fighter': { icon: 'ᚱ', file: 'runeFighter' },
+  Assassin:       { icon: '🗡️', file: 'assassin' },
 }
 const CLASS_NAMES = Object.keys(CLASS_META)
 
@@ -109,7 +110,15 @@ function customImage(member) {
 }
 
 function classAssets(cls) {
-  const file = (CLASS_META[cls] || CLASS_META.Berserker).file
+  const meta = CLASS_META[cls] || CLASS_META.Berserker
+  const file = meta.file
+  if (cls === 'Assassin') {
+    const assassinCdn = 'https://gcdn.wemade.games/lygl/official/0.0.31/_next/static/images/nft'
+    return {
+      thumbnail: `${assassinCdn}/character/upper/assassin.webp`,
+      nameplate: `${assassinCdn}/character/classname/en/assassin.webp`,
+    }
+  }
   return {
     thumbnail: `${CDN}/character/thumbnail/${file}.webp`,
     nameplate: `${CDN}/character/classname/en/${file}.webp`,
